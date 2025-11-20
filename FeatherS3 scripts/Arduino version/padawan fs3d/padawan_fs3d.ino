@@ -60,8 +60,11 @@
 // SD Card: CS->IO38
 #define SD_CS_PIN 38
 
-// Battery: ADC Pin IO2 (ADC1 CH1)
-#define BATTERY_ADC_PIN 2
+// Battery: MAX17048 I2C chip (Feather S3D)
+// VBUS sense pin (GPIO9)
+#define VBUS_SENSE_PIN 9
+// MAX17048 I2C address
+#define MAX17048_ADDRESS 0x36
 
 // Display: I2C, Address 0x3C
 #define SCREEN_WIDTH 128
@@ -97,6 +100,8 @@ int rotaryAPosition = 0;
 int rotaryBPosition = 0;
 int rotaryALastPosition = 0;
 int rotaryBLastPosition = 0;
+bool max17048Available = false;
+bool max17048Available = false;
 
 // Button states (for debouncing)
 bool buttonStates[6] = {false, false, false, false, false, false};
@@ -176,6 +181,17 @@ void setup() {
   // Initialize rotary encoder button pins
   pinMode(ROTARY_A_BUTTON_PIN, INPUT_PULLUP);
   pinMode(ROTARY_B_BUTTON_PIN, INPUT_PULLUP);
+  
+  // Initialize VBUS sense pin
+  pinMode(VBUS_SENSE_PIN, INPUT);
+  
+  // Initialize MAX17048 battery gauge
+  max17048Available = initMAX17048();
+  if (max17048Available) {
+    DEBUG_PRINTLN("PADAWAN: MAX17048 initialized");
+  } else {
+    DEBUG_PRINTLN("PADAWAN: MAX17048 initialization failed");
+  }
   
   // Load configuration
   if (sdAvailable) {
@@ -509,27 +525,87 @@ void downloadConfig(bool useCurrentConfigPrefix) {
   file.close();
 }
 
-// ===== BATTERY STATUS =====
+// ===== BATTERY STATUS (MAX17048 for Feather S3D) =====
+
+bool initMAX17048() {
+  // Check if MAX17048 is present on I2C bus
+  Wire.beginTransmission(MAX17048_ADDRESS);
+  byte error = Wire.endTransmission();
+  if (error == 0) {
+    // Initialize MAX17048 - send reset command
+    // Write to Command Register (0xFE) with POR (Power-On Reset) command
+    Wire.beginTransmission(MAX17048_ADDRESS);
+    Wire.write(0xFE);  // Command register
+    Wire.write(0x54);  // POR command
+    Wire.endTransmission();
+    delay(10);
+    return true;
+  }
+  return false;
+}
+
+float getBatteryVoltage() {
+  if (!max17048Available) return 0.0;
+  
+  // Read VCELL register (0x02) - 16-bit value
+  Wire.beginTransmission(MAX17048_ADDRESS);
+  Wire.write(0x02);  // VCELL register
+  Wire.endTransmission(false);
+  
+  Wire.requestFrom(MAX17048_ADDRESS, 2);
+  if (Wire.available() >= 2) {
+    uint16_t vcell = (Wire.read() << 8) | Wire.read();
+    // VCELL is in units of 78.125µV (0.000078125V)
+    // Convert to volts
+    float voltage = (float)vcell * 0.000078125;
+    return voltage;
+  }
+  return 0.0;
+}
+
+float getBatteryPercentage() {
+  if (!max17048Available) return 0.0;
+  
+  // Read SOC register (0x04) - 16-bit value
+  Wire.beginTransmission(MAX17048_ADDRESS);
+  Wire.write(0x04);  // SOC register
+  Wire.endTransmission(false);
+  
+  Wire.requestFrom(MAX17048_ADDRESS, 2);
+  if (Wire.available() >= 2) {
+    uint16_t soc = (Wire.read() << 8) | Wire.read();
+    // SOC is in units of 1/256% (0.00390625%)
+    // High byte is percentage, low byte is fraction
+    float percentage = (float)soc / 256.0;
+    return percentage;
+  }
+  return 0.0;
+}
+
+bool getVBUSPresent() {
+  // VBUS_SENSE pin is HIGH when USB power is present
+  return digitalRead(VBUS_SENSE_PIN) == HIGH;
+}
+
 String getBatteryStatus() {
-  // Read battery voltage from ADC pin IO2 (ADC1 CH1)
-  // ESP32-S3 ADC is 12-bit (0-4095), but we need to account for attenuation
-  // The voltage divider on FeatherS3 delivers ~1.1V to ADC at max capacity
+  if (!max17048Available) {
+    // Fallback if MAX17048 is not available
+    return "BATTERY:0,0.00,unknown";
+  }
   
-  int adcValue = analogRead(BATTERY_ADC_PIN);
+  float voltage = getBatteryVoltage();
+  float percentage = getBatteryPercentage();
+  bool vbusPresent = getVBUSPresent();
   
-  // Formula from feathers3.py: voltage = (adc_value / 5371)
-  // This gives us the battery voltage (approximately 4.2V max for 1S LiPo)
-  float voltage = (float)adcValue / 5371.0;
-  
-  // Calculate percentage: (voltage * 100 - 320)
-  // Clamp to valid range (0-100)
-  int percentage = (int)(voltage * 100.0 - 320.0);
+  // Clamp percentage to valid range
   if (percentage < 0) percentage = 0;
   if (percentage > 100) percentage = 100;
   
   // Determine status
   String status = "unknown";
-  if (percentage >= 80) {
+  if (vbusPresent) {
+    status = "charging";
+  } else if (percentage >= 80) {
     status = "good";
   } else if (percentage >= 50) {
     status = "ok";
@@ -544,7 +620,7 @@ String getBatteryStatus() {
   char voltageStr[10];
   dtostrf(voltage, 4, 2, voltageStr);
   
-  return "BATTERY:" + String(percentage) + "," + String(voltageStr) + "," + status;
+  return "BATTERY:" + String((int)percentage) + "," + String(voltageStr) + "," + status;
 }
 
 // ===== BUTTON HANDLING =====
@@ -1258,13 +1334,12 @@ void updateDisplayMode() {
   if (displayMode == "layer") {
     updateDisplay("Layer: " + String(currentLayer));
   } else if (displayMode == "battery") {
-    // Get battery percentage
-    int adcValue = analogRead(BATTERY_ADC_PIN);
-    float voltage = (float)adcValue / 5371.0;
-    int percentage = (int)(voltage * 100.0 - 320.0);
-    if (percentage < 0) percentage = 0;
-    if (percentage > 100) percentage = 100;
-    updateDisplay(String(percentage) + "%");
+    // Get battery percentage from MAX17048
+    float percentage = getBatteryPercentage();
+    int batteryPercent = (int)percentage;
+    if (batteryPercent < 0) batteryPercent = 0;
+    if (batteryPercent > 100) batteryPercent = 100;
+    updateDisplay(String(batteryPercent) + "%");
   } else if (displayMode == "time") {
     if (systemTime.length() > 0) {
       updateDisplay(systemTime);
