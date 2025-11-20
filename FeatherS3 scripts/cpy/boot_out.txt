@@ -1,0 +1,10 @@
+Adafruit CircuitPython 9.2.7 on 2025-04-01; FeatherS3 with ESP32S3
+Board ID:unexpectedmaker_feathers3
+UID:0740D1DA7A86
+boot.py output:
+BOOT.PY: Starting USB configuration...
+BOOT.PY: All USB CDC devices disabled
+BOOT.PY: USB CDC console and data channels enabled
+BOOT.PY: FAILURE - USB channels NOT available
+BOOT.PY: Console channel missing!
+BOOT.PY: Complete

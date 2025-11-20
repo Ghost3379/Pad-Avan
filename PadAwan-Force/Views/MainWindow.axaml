@@ -225,26 +225,28 @@
 						HorizontalContentAlignment="Center"
                         VerticalContentAlignment="Center"/>
 
-				<MenuButton Content="Config"
-							Width="120"
-							Height="30"
-							FontSize="12"
-							Background="#404040"
-							Foreground="White"
-							BorderBrush="#707070"
-							BorderThickness="2"
-							CornerRadius="3"
-							HorizontalContentAlignment="Center"
-							VerticalContentAlignment="Center">
-					<MenuFlyout>
-						<MenuItem Header="Upload Config from File"
-								  Command="{Binding UploadConfigFromFileCommand}"/>
-						<MenuItem Header="Download Config"
-								  Command="{Binding DownloadConfigurationCommand}"/>
-						<MenuItem Header="Read Config"
-								  Command="{Binding ReadConfigCommand}"/>
-					</MenuFlyout>
-				</MenuButton>
+				<Button Content="Config"
+						Width="120"
+						Height="30"
+						FontSize="12"
+						Background="#404040"
+						Foreground="White"
+						BorderBrush="#707070"
+						BorderThickness="2"
+						CornerRadius="3"
+						HorizontalContentAlignment="Center"
+						VerticalContentAlignment="Center">
+					<Button.Flyout>
+						<MenuFlyout>
+							<MenuItem Header="Upload Config from File"
+									  Command="{Binding UploadConfigFromFileCommand}"/>
+							<MenuItem Header="Download Config"
+									  Command="{Binding DownloadConfigurationCommand}"/>
+							<MenuItem Header="Read Config"
+									  Command="{Binding ReadConfigCommand}"/>
+						</MenuFlyout>
+					</Button.Flyout>
+				</Button>
 
 				<Button Content="Update"
 						Width="90"

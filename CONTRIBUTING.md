@@ -1,6 +1,10 @@
-# Contributing to PadAwan-Force
+# Contributing to Padawan
 
-Thank you for your interest in contributing to PadAwan-Force! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Padawan! This document provides guidelines and instructions for contributing.
+
+**Note**: This repository contains both:
+- **Padawan** - The macro pad hardware firmware (Arduino)
+- **PadAwan-Force** - The desktop configuration software (Avalonia UI)
 
 ## How to Contribute
 
