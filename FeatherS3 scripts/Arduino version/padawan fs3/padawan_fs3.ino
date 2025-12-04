@@ -125,18 +125,43 @@ struct KnobConfig {
 
 // ===== SETUP =====
 void setup() {
+  // For ESP32-S3 with "CDC on Boot" enabled in Arduino IDE:
+  // The USB stack (including CDC) is already initialized by the bootloader
+  // We do NOT need to call USB.begin() - it would reinitialize and break CDC
+  // We just need to:
+  // 1. Initialize Serial to use the existing CDC
+  // 2. Add HID devices to the existing USB stack
+  
   Serial.begin(115200);
-  delay(100); // Small delay for serial to initialize
+  
+  // Wait for Serial to be ready (important for native USB)
+  // Give it time to enumerate - up to 5 seconds
+  unsigned long startTime = millis();
+  while (!Serial && (millis() - startTime < 5000)) {
+    delay(10);
+  }
+  
+  // Additional delay to ensure USB CDC is fully enumerated
+  delay(1000);
   
   DEBUG_PRINTLN("PADAWAN: Starting...");
+  DEBUG_PRINTLN("PADAWAN: Serial/CDC initialized (from bootloader)");
   
-  // Initialize USB HID
+  // Initialize USB HID - this adds HID devices to the existing USB stack
+  // The USB stack already supports CDC, and HID is added alongside it
+  // NO USB.begin() needed - it would interfere with the bootloader-initialized USB stack
   Keyboard.begin();
   ConsumerControl.begin();
-  USB.begin();
-  delay(500); // Give USB time to initialize
   
-  DEBUG_PRINTLN("PADAWAN: USB HID initialized");
+  // Give USB stack time to add HID descriptors
+  delay(500);
+  
+  // Verify Serial is still available after HID initialization
+  if (Serial) {
+    DEBUG_PRINTLN("PADAWAN: USB HID initialized - Serial/CDC still available");
+  } else {
+    DEBUG_PRINTLN("PADAWAN: WARNING - Serial/CDC lost after HID init!");
+  }
   
   // Initialize I2C for display
   Wire.begin();
@@ -198,6 +223,13 @@ void setup() {
 
 // ===== MAIN LOOP =====
 void loop() {
+  // Keep USB stack active (important for CDC to stay available)
+  // This ensures both CDC (Serial) and HID remain functional
+  if (Serial) {
+    // Serial is available - keep it alive
+    Serial.flush();
+  }
+  
   // Handle serial communication
   handleSerial();
   
