@@ -22,7 +22,9 @@
 #include <SPI.h>
 #include <ArduinoJson.h>
 #include <RotaryEncoder.h>
+#include <string.h>  // For memset
 #include "KeyboardLayoutWinCH.h"
+#include <UMS3.h>
 
 // ===== DEBUG SETTINGS =====
 // Set to 1 to enable Serial debug output (visible in Serial Monitor)
@@ -59,9 +61,6 @@
 // SD Card: CS->IO38
 #define SD_CS_PIN 38
 
-// Battery: ADC Pin IO2 (ADC1 CH1)
-#define BATTERY_ADC_PIN 2
-
 // Display: I2C, Address 0x3C
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
@@ -74,6 +73,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 RotaryEncoder rotaryA(ROTARY_A_PIN_A, ROTARY_A_PIN_B, RotaryEncoder::LatchMode::FOUR3);
 RotaryEncoder rotaryB(ROTARY_B_PIN_A, ROTARY_B_PIN_B, RotaryEncoder::LatchMode::FOUR3);
 KeyboardLayoutWinCH keyboardLayout(&Keyboard);
+UMS3 ums3;
 
 // ===== CONFIGURATION =====
 String configFilePath = "/macropad_config.json";
@@ -84,6 +84,9 @@ String displayMode = "layer";  // "off", "layer", "battery", "time"
 bool displayEnabled = true;
 String systemTime = "";
 String systemDate = "";
+
+// Firmware version
+const String FIRMWARE_VERSION = "1.0.0";
 
 // ===== STATE VARIABLES =====
 bool sdAvailable = false;
@@ -137,6 +140,10 @@ void setup() {
   
   // Initialize I2C for display
   Wire.begin();
+  
+  // Initialize UMS3 board peripherals (call this after Wire.begin())
+  ums3.begin();
+  DEBUG_PRINTLN("PADAWAN: UMS3 initialized");
   
   // Initialize display
   if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS)) {
@@ -271,6 +278,11 @@ void handleSerial() {
     if (line == "BATTERY_STATUS") {
       String batteryResponse = getBatteryStatus();
       Serial.println(batteryResponse);
+      return;
+    }
+    
+    if (line == "GET_VERSION") {
+      Serial.println("VERSION:" + FIRMWARE_VERSION);
       return;
     }
     
@@ -502,40 +514,33 @@ void downloadConfig(bool useCurrentConfigPrefix) {
 
 // ===== BATTERY STATUS =====
 String getBatteryStatus() {
-  // Read battery voltage from ADC pin IO2 (ADC1 CH1)
-  // ESP32-S3 ADC is 12-bit (0-4095), but we need to account for attenuation
-  // The voltage divider on FeatherS3 delivers ~1.1V to ADC at max capacity
+  // Get battery voltage from MAX17048 via UMS3 library
+  float batteryVoltage = ums3.getBatteryVoltage();
   
-  int adcValue = analogRead(BATTERY_ADC_PIN);
+  // Calculate battery percentage from voltage
+  // LiPo typical range: 3.0V (empty) to 4.2V (full)
+  // Formula: percentage = ((voltage - 3.0) / (4.2 - 3.0)) * 100
+  float batteryPercentage = ((batteryVoltage - 3.0) / 1.2) * 100.0;
   
-  // Formula from feathers3.py: voltage = (adc_value / 5371)
-  // This gives us the battery voltage (approximately 4.2V max for 1S LiPo)
-  float voltage = (float)adcValue / 5371.0;
-  
-  // Calculate percentage: (voltage * 100 - 320)
   // Clamp to valid range (0-100)
-  int percentage = (int)(voltage * 100.0 - 320.0);
-  if (percentage < 0) percentage = 0;
-  if (percentage > 100) percentage = 100;
+  if (batteryPercentage < 0) batteryPercentage = 0;
+  if (batteryPercentage > 100) batteryPercentage = 100;
+  
+  // Check if USB power is present
+  bool vbusPresent = ums3.getVbusPresent();
   
   // Determine status
-  String status = "unknown";
-  if (percentage >= 80) {
-    status = "good";
-  } else if (percentage >= 50) {
-    status = "ok";
-  } else if (percentage >= 20) {
-    status = "low";
-  } else {
-    status = "critical";
-  }
+  String status = vbusPresent ? "charging" : "discharging";
   
   // Format: BATTERY:percentage,voltage,status
-  // Voltage in format like "4.20" (2 decimal places)
-  char voltageStr[10];
-  dtostrf(voltage, 4, 2, voltageStr);
+  String response = "BATTERY:";
+  response += String((int)batteryPercentage);
+  response += ",";
+  response += String(batteryVoltage, 2);
+  response += ",";
+  response += status;
   
-  return "BATTERY:" + String(percentage) + "," + String(voltageStr) + "," + status;
+  return response;
 }
 
 // ===== BUTTON HANDLING =====
@@ -633,20 +638,15 @@ void executeButtonAction(String action, String keyValue) {
   DEBUG_PRINTLN("");
   
   if (action == "Type Text") {
+    // NUR für echten Text - NIE für Keycodes, Modifier, oder Sondertasten!
     DEBUG_PRINTLN("Writing text: '" + keyValue + "'");
     DEBUG_PRINTLN("Text length: " + String(keyValue.length()));
     
-    // Debug: Print each character
+    // Verwende Keyboard.write() direkt für ASCII-Zeichen
+    // keyboardLayout.write() scheint nicht zu funktionieren, daher direkter Ansatz
     for (unsigned int i = 0; i < keyValue.length(); i++) {
       char c = keyValue[i];
-      DEBUG_PRINTLN("Char[" + String(i) + "]: '" + String(c) + "' (ASCII: " + String((int)c) + ")");
-    }
-    
-    // Try using Keyboard.write() directly - it handles characters correctly
-    // This should work better than the custom layout class
-    for (unsigned int i = 0; i < keyValue.length(); i++) {
-      char c = keyValue[i];
-      DEBUG_PRINTLN("Sending char: '" + String(c) + "'");
+      DEBUG_PRINTLN("Sending char: '" + String(c) + "' (ASCII: " + String((int)c) + ")");
       Keyboard.write(c);
       delay(20); // Small delay between characters
     }
@@ -655,10 +655,71 @@ void executeButtonAction(String action, String keyValue) {
       uint8_t keycode = getKeycode(keyValue);
       if (keycode != 0) {
         DEBUG_PRINTLN("Button pressing special key: " + keyValue + " (code: 0x" + String(keycode, HEX) + ")");
-        Keyboard.press(keycode);
-        delay(50); // Small delay to ensure key is registered
-        Keyboard.releaseAll();
-        delay(10); // Small delay after release
+        
+        // Modifier keys need special handling - they're sent as modifier bits, not keycodes
+        if (keycode == 0xE3) {
+          // Windows Key (Left GUI)
+          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+          hidReport[0] = 0x08; // Left GUI modifier bit
+          tud_hid_report(1, hidReport, 8);
+          delay(100);
+          memset(hidReport, 0, 8);
+          tud_hid_report(1, hidReport, 8);
+          delay(20);
+          DEBUG_PRINTLN("Windows Key sent via TinyUSB (Report ID 1)");
+        } else if (keycode == 0xE0) {
+          // Left Control
+          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+          hidReport[0] = 0x01; // Left Control modifier bit
+          tud_hid_report(1, hidReport, 8);
+          delay(100);
+          memset(hidReport, 0, 8);
+          tud_hid_report(1, hidReport, 8);
+          delay(20);
+          DEBUG_PRINTLN("Left Control sent via TinyUSB (Report ID 1)");
+        } else if (keycode == 0xE1) {
+          // Left Shift
+          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+          hidReport[0] = 0x02; // Left Shift modifier bit
+          tud_hid_report(1, hidReport, 8);
+          delay(100);
+          memset(hidReport, 0, 8);
+          tud_hid_report(1, hidReport, 8);
+          delay(20);
+          DEBUG_PRINTLN("Left Shift sent via TinyUSB (Report ID 1)");
+        } else if (keycode == 0xE2) {
+          // Left Alt
+          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+          hidReport[0] = 0x04; // Left Alt modifier bit
+          tud_hid_report(1, hidReport, 8);
+          delay(100);
+          memset(hidReport, 0, 8);
+          tud_hid_report(1, hidReport, 8);
+          delay(20);
+          DEBUG_PRINTLN("Left Alt sent via TinyUSB (Report ID 1)");
+        } else if (keycode == 0xE6) {
+          // Right Alt (AltGr)
+          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+          hidReport[0] = 0x40; // Right Alt modifier bit
+          tud_hid_report(1, hidReport, 8);
+          delay(100);
+          memset(hidReport, 0, 8);
+          tud_hid_report(1, hidReport, 8);
+          delay(20);
+          DEBUG_PRINTLN("Right Alt (AltGr) sent via TinyUSB (Report ID 1)");
+        } else {
+          // Alle anderen Keys über TinyUSB direkt senden (Keyboard.press() funktioniert nicht zuverlässig auf ESP32-S3)
+          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+          hidReport[2] = keycode; // Erster Keycode-Slot (Byte 1 ist Reserved)
+          tud_hid_report(1, hidReport, 8); // Report ID 1 für Keyboard
+          // Arrow keys need longer delay
+          delay((keycode == 0x52 || keycode == 0x51) ? 100 : 50);
+          // Release
+          memset(hidReport, 0, 8);
+          tud_hid_report(1, hidReport, 8);
+          delay(20);
+          DEBUG_PRINTLN("Special key sent via TinyUSB (keycode: 0x" + String(keycode, HEX) + ", Report ID 1)");
+        }
       } else {
         DEBUG_PRINTLN("Button: Unknown special key: " + keyValue);
       }
@@ -769,12 +830,16 @@ void handleRotaryPress(String knobLetter) {
   if (knobConfig.containsKey("pressKey")) {
     if (knobConfig["pressKey"].is<const char*>()) {
       pressKey = knobConfig["pressKey"].as<String>();
+      pressKey.trim(); // Remove whitespace
     } else if (knobConfig["pressKey"].isNull()) {
       pressKey = "";
+    } else if (knobConfig["pressKey"].is<String>()) {
+      pressKey = knobConfig["pressKey"].as<String>();
+      pressKey.trim(); // Remove whitespace
     }
   }
   
-  DEBUG_PRINTLN("Rotary press - Action: " + pressAction + ", Key: '" + pressKey + "'");
+  DEBUG_PRINTLN("Rotary press - Action: '" + pressAction + "', Key: '" + pressKey + "' (length: " + String(pressKey.length()) + ")");
   executeKnobAction(pressAction, pressKey);
 }
 
@@ -857,10 +922,11 @@ void handleRotaryRotation(String knobLetter, String direction) {
 
 void executeKnobAction(String action, String keyValue) {
   if (action == "None" || action.length() == 0) {
+    DEBUG_PRINTLN("executeKnobAction: Action is None or empty, returning");
     return;
   }
   
-  DEBUG_PRINTLN("Executing knob action: " + action);
+  DEBUG_PRINTLN("Executing knob action: '" + action + "', keyValue: '" + keyValue + "' (length: " + String(keyValue.length()) + ")");
   
   if (action == "Increase Volume") {
     ConsumerControl.press(0xE9); // VOLUME_INCREMENT
@@ -869,15 +935,31 @@ void executeKnobAction(String action, String keyValue) {
     ConsumerControl.press(0xEA); // VOLUME_DECREMENT
     ConsumerControl.release();
   } else if (action == "Scroll Up") {
-    // Use Page Up for scrolling (more reliable than arrow keys)
-    Keyboard.press(0x4B); // PAGE_UP
+    // UP_ARROW = 0x52 (from CircuitPython keycode_win_de.py)
+    // Verwende TinyUSB direkt, da Keyboard.press() auf ESP32-S3 Keycodes falsch interpretieren kann
+    uint8_t keycode = 0x52; // UP_ARROW
+    uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    hidReport[2] = keycode; // Erster Keycode-Slot (Byte 1 ist Reserved)
+    tud_hid_report(1, hidReport, 8); // Report ID 1 für Keyboard
+    delay(50);
+    // Release
+    memset(hidReport, 0, 8);
+    tud_hid_report(1, hidReport, 8);
     delay(20);
-    Keyboard.releaseAll();
+    DEBUG_PRINTLN("Scroll Up executed via TinyUSB (keycode: 0x52, Report ID 1)");
   } else if (action == "Scroll Down") {
-    // Use Page Down for scrolling (more reliable than arrow keys)
-    Keyboard.press(0x4E); // PAGE_DOWN
+    // DOWN_ARROW = 0x51 (from CircuitPython keycode_win_de.py)
+    // Verwende TinyUSB direkt, da Keyboard.press() auf ESP32-S3 Keycodes falsch interpretieren kann
+    uint8_t keycode = 0x51; // DOWN_ARROW
+    uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    hidReport[2] = keycode; // Erster Keycode-Slot (Byte 1 ist Reserved)
+    tud_hid_report(1, hidReport, 8); // Report ID 1 für Keyboard
+    delay(50);
+    // Release
+    memset(hidReport, 0, 8);
+    tud_hid_report(1, hidReport, 8);
     delay(20);
-    Keyboard.releaseAll();
+    DEBUG_PRINTLN("Scroll Down executed via TinyUSB (keycode: 0x51, Report ID 1)");
   } else if (action == "Layer Switch" || action == "Switch Layer") {
     currentLayer++;
     if (currentLayer > maxLayers) {
@@ -886,21 +968,91 @@ void executeKnobAction(String action, String keyValue) {
     updateDisplayMode();
     DEBUG_PRINTLN("Switched to layer " + String(currentLayer));
   } else if (action == "Type Text") {
+    // NUR für echten Text - NIE für Keycodes, Modifier, oder Sondertasten!
+    DEBUG_PRINTLN("Type Text action detected, keyValue length: " + String(keyValue.length()));
     if (keyValue.length() > 0) {
-      DEBUG_PRINTLN("Typing text: '" + keyValue + "'");
-      keyboardLayout.write(keyValue);
+      DEBUG_PRINTLN("Typing text: '" + keyValue + "' (length: " + String(keyValue.length()) + ")");
+      // Verwende Keyboard.write() direkt für ASCII-Zeichen
+      for (unsigned int i = 0; i < keyValue.length(); i++) {
+        char c = keyValue[i];
+        DEBUG_PRINTLN("Sending char: '" + String(c) + "' (ASCII: " + String((int)c) + ")");
+        Keyboard.write(c);
+        delay(20); // Small delay between characters
+      }
+      DEBUG_PRINTLN("Type Text execution completed");
     } else {
-      DEBUG_PRINTLN("Type Text action but no text provided");
+      DEBUG_PRINTLN("Type Text action but no text provided (keyValue is empty)");
     }
   } else if (action == "Special Key") {
     if (keyValue.length() > 0) {
       uint8_t keycode = getKeycode(keyValue);
       if (keycode != 0) {
         DEBUG_PRINTLN("Knob pressing special key: " + keyValue + " (code: 0x" + String(keycode, HEX) + ")");
-        Keyboard.press(keycode);
-        delay(50); // Small delay to ensure key is registered
-        Keyboard.releaseAll();
-        delay(10); // Small delay after release
+        
+        // Modifier keys need special handling - they're sent as modifier bits, not keycodes
+        if (keycode == 0xE3) {
+          // Windows Key (Left GUI)
+          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+          hidReport[0] = 0x08; // Left GUI modifier bit
+          tud_hid_report(1, hidReport, 8);
+          delay(100);
+          memset(hidReport, 0, 8);
+          tud_hid_report(1, hidReport, 8);
+          delay(20);
+          DEBUG_PRINTLN("Windows Key sent via TinyUSB (Report ID 1)");
+        } else if (keycode == 0xE0) {
+          // Left Control
+          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+          hidReport[0] = 0x01; // Left Control modifier bit
+          tud_hid_report(1, hidReport, 8);
+          delay(100);
+          memset(hidReport, 0, 8);
+          tud_hid_report(1, hidReport, 8);
+          delay(20);
+          DEBUG_PRINTLN("Left Control sent via TinyUSB (Report ID 1)");
+        } else if (keycode == 0xE1) {
+          // Left Shift
+          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+          hidReport[0] = 0x02; // Left Shift modifier bit
+          tud_hid_report(1, hidReport, 8);
+          delay(100);
+          memset(hidReport, 0, 8);
+          tud_hid_report(1, hidReport, 8);
+          delay(20);
+          DEBUG_PRINTLN("Left Shift sent via TinyUSB (Report ID 1)");
+        } else if (keycode == 0xE2) {
+          // Left Alt
+          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+          hidReport[0] = 0x04; // Left Alt modifier bit
+          tud_hid_report(1, hidReport, 8);
+          delay(100);
+          memset(hidReport, 0, 8);
+          tud_hid_report(1, hidReport, 8);
+          delay(20);
+          DEBUG_PRINTLN("Left Alt sent via TinyUSB (Report ID 1)");
+        } else if (keycode == 0xE6) {
+          // Right Alt (AltGr)
+          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+          hidReport[0] = 0x40; // Right Alt modifier bit
+          tud_hid_report(1, hidReport, 8);
+          delay(100);
+          memset(hidReport, 0, 8);
+          tud_hid_report(1, hidReport, 8);
+          delay(20);
+          DEBUG_PRINTLN("Right Alt (AltGr) sent via TinyUSB (Report ID 1)");
+        } else {
+          // Alle anderen Keys über TinyUSB direkt senden (Keyboard.press() funktioniert nicht zuverlässig auf ESP32-S3)
+          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+          hidReport[2] = keycode; // Erster Keycode-Slot (Byte 1 ist Reserved)
+          tud_hid_report(1, hidReport, 8); // Report ID 1 für Keyboard
+          // Arrow keys need longer delay
+          delay((keycode == 0x52 || keycode == 0x51) ? 100 : 50);
+          // Release
+          memset(hidReport, 0, 8);
+          tud_hid_report(1, hidReport, 8);
+          delay(20);
+          DEBUG_PRINTLN("Special key sent via TinyUSB (keycode: 0x" + String(keycode, HEX) + ", Report ID 1)");
+        }
       } else {
         DEBUG_PRINTLN("Knob: Unknown special key: " + keyValue);
       }
@@ -944,9 +1096,11 @@ void executeKeyCombo(String comboString) {
     modifier = 0x02; // Left Shift
   } else if (modifierStr == "ALT") {
     modifier = 0x04; // Left Alt
-  } else if (modifierStr == "WIN" || modifierStr == "WINDOWS") {
-    modifier = 0x08; // Left GUI
+  } else if (modifierStr == "WIN" || modifierStr == "WINDOWS" || modifierStr == "WINDOWS KEY") {
+    modifier = 0x08; // Left GUI (bit 3)
   }
+  
+  DEBUG_PRINTLN("Parsed modifier: 0x" + String(modifier, HEX) + " for '" + modifierStr + "'");
   
   uint8_t keycode = getKeycode(keyStr);
   
@@ -955,19 +1109,50 @@ void executeKeyCombo(String comboString) {
   if (modifier != 0 && keycode != 0) {
     DEBUG_PRINTLN("Executing key combo - modifier: 0x" + String(modifier, HEX) + ", keycode: 0x" + String(keycode, HEX));
     
-    // Use USBHIDKeyboard's built-in method for key combos
-    // Press modifier first, then add the key
-    Keyboard.press(modifier);
-    delay(10);
-    Keyboard.press(keycode);
-    delay(50); // Hold the keys
-    Keyboard.releaseAll();
-    delay(10);
-    
-    DEBUG_PRINTLN("Key combo executed successfully");
+    // Modifier müssen im Modifier-Byte gesetzt werden, nicht als normale Keycodes
+    // Verwende TinyUSB direkt für korrekte HID-Report-Struktur
+    // Report ID 1 ist normalerweise für Keyboard Reports
+    if (tud_hid_ready()) {
+      uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+      hidReport[0] = modifier; // Modifier-Byte (bit 0 = Left Ctrl, bit 1 = Left Shift, bit 2 = Left Alt, bit 3 = Left GUI)
+      hidReport[2] = keycode;  // Erster Keycode-Slot (Byte 1 ist Reserved)
+      tud_hid_report(1, hidReport, 8); // Report ID 1 für Keyboard
+      delay(100); // Länger halten für zuverlässigere Erkennung
+      // Release
+      memset(hidReport, 0, 8);
+      tud_hid_report(1, hidReport, 8);
+      delay(20);
+      DEBUG_PRINTLN("Key combo executed via TinyUSB (Report ID 1)");
+    } else {
+      // Fallback: Verwende USBHIDKeyboard Library mit korrekter Modifier-Behandlung
+      // Die Library unterstützt Modifier über press() mit Modifier-Keycodes
+      // Aber wir müssen es manuell machen, da press() nur einen Keycode akzeptiert
+      DEBUG_PRINTLN("TinyUSB not ready, trying alternative method...");
+      
+      // Alternative: Verwende Keyboard.press() mit Modifier als erstes Argument
+      // Aber USBHIDKeyboard unterstützt das nicht direkt, daher müssen wir
+      // die HID Reports manuell senden, auch wenn tud_hid_ready() false ist
+      
+      // Versuche es trotzdem mit tud_hid_report, auch wenn ready() false ist
+      uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+      hidReport[0] = modifier;
+      hidReport[2] = keycode;
+      tud_hid_report(1, hidReport, 8);
+      delay(100);
+      memset(hidReport, 0, 8);
+      tud_hid_report(1, hidReport, 8);
+      delay(20);
+      DEBUG_PRINTLN("Key combo executed via TinyUSB (forced, Report ID 1)");
+    }
   } else {
     DEBUG_PRINTLN("Key combo failed - modifier or keycode is 0");
     DEBUG_PRINTLN("  Modifier: " + String(modifier) + ", Keycode: " + String(keycode));
+    if (modifier == 0) {
+      DEBUG_PRINTLN("  ERROR: Modifier not recognized: '" + modifierStr + "'");
+    }
+    if (keycode == 0) {
+      DEBUG_PRINTLN("  ERROR: Keycode not found for: '" + keyStr + "'");
+    }
   }
 }
 
@@ -1022,6 +1207,12 @@ uint8_t getKeycode(String key) {
   if (key == "WINDOWS KEY" || key == "WINDOWS" || key == "WIN") return 0xE3; // Left GUI
   if (key == "MENU KEY" || key == "MENU" || key == "APPLICATION") return 0x65;
   
+  // Modifier keys (these need special handling - they're not regular keycodes)
+  if (key == "CTRL" || key == "CONTROL" || key == "LEFT CTRL" || key == "LEFT CONTROL") return 0xE0; // Left Control (special marker)
+  if (key == "SHIFT" || key == "LEFT SHIFT") return 0xE1; // Left Shift (special marker)
+  if (key == "ALT" || key == "LEFT ALT") return 0xE2; // Left Alt (special marker)
+  if (key == "ALT GR" || key == "ALTGR" || key == "RIGHT ALT") return 0xE6; // Right Alt (AltGr)
+  
   return 0;
 }
 
@@ -1063,13 +1254,20 @@ void updateDisplayMode() {
   if (displayMode == "layer") {
     updateDisplay("Layer: " + String(currentLayer));
   } else if (displayMode == "battery") {
-    // Get battery percentage
-    int adcValue = analogRead(BATTERY_ADC_PIN);
-    float voltage = (float)adcValue / 5371.0;
-    int percentage = (int)(voltage * 100.0 - 320.0);
-    if (percentage < 0) percentage = 0;
-    if (percentage > 100) percentage = 100;
-    updateDisplay(String(percentage) + "%");
+    float batteryVoltage = ums3.getBatteryVoltage();
+    
+    // Calculate battery percentage from voltage
+    float batteryPercentage = ((batteryVoltage - 3.0) / 1.2) * 100.0;
+    if (batteryPercentage < 0) batteryPercentage = 0;
+    if (batteryPercentage > 100) batteryPercentage = 100;
+    
+    bool vbusPresent = ums3.getVbusPresent();
+    
+    String batteryText = String((int)batteryPercentage) + "%";
+    if (vbusPresent) {
+      batteryText += " CHG";
+    }
+    updateDisplay(batteryText);
   } else if (displayMode == "time") {
     if (systemTime.length() > 0) {
       updateDisplay(systemTime);
