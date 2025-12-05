@@ -44,6 +44,13 @@ if (-not (Test-Path "installer")) {
     New-Item -ItemType Directory -Path "installer" | Out-Null
 }
 
+# Step 4.5: Delete any existing installer to avoid conflicts
+if (Test-Path "installer\PadAvanForce-Setup.exe") {
+    Write-Host "Removing existing installer..." -ForegroundColor Yellow
+    Remove-Item "installer\PadAvanForce-Setup.exe" -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+}
+
 # Step 5: Compile installer
 Write-Host "Creating installer..." -ForegroundColor Green
 & $innoSetupPath "installer.iss"
