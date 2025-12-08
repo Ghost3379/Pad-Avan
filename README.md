@@ -5,7 +5,7 @@ A powerful, customizable macro pad with 6 buttons and 2 rotary encoders, featuri
 **Pad-Avan** = Hardware/Firmware (Arduino ESP32-S3)  
 **Pad-Avan-Force** = Desktop Configuration Software (Avalonia UI)
 
-🌐 **Website**: [https://Pad-Avan-force.base44.app](https://Pad-Avan-force.base44.app)
+🌐 **Website**: [https://pad-avan.base44.app](https://pad-avan.base44.app)
 
 ![Pad-Avan](https://img.shields.io/badge/Version-1.0.0-blue)
 ![.NET](https://img.shields.io/badge/.NET-8.0-purple)
