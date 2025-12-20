@@ -2,42 +2,20 @@
  * PadAwan-Force Macro Pad - Arduino Version
  * ESP32-S3 FeatherS3D Implementation
  * 
- * Features:
- * - USB HID Keyboard & Consumer Control
- * - 6 Buttons
- * - 2 Rotary Encoders with Press
- * - SSD1306 OLED Display
- * - SD Card Configuration Storage
- * - Serial Communication with Desktop App
+ * Minimal version - Serial communication and configuration only
+ * No buttons, knobs, or keypressing
  */
 
 #include <USB.h>
-#include <USBHIDKeyboard.h>
-#include <USBHIDConsumerControl.h>
-#include "tusb.h"  // TinyUSB header for direct HID access
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include "tusb.h"
 #include <SD.h>
 #include <SPI.h>
 #include <ArduinoJson.h>
 #include <RotaryEncoder.h>
-#include <string.h>  // For memset
-#include "KeyboardLayoutWinCH.h"
 #include <UMS3.h>
-
-// ===== DEBUG SETTINGS =====
-// Set to 1 to enable Serial debug output (visible in Serial Monitor)
-// Set to 0 to disable debug output (only app communication)
-#define DEBUG_SERIAL 1
-
-#if DEBUG_SERIAL
-  #define DEBUG_PRINT(x) Serial.print(x)
-  #define DEBUG_PRINTLN(x) Serial.println(x)
-#else
-  #define DEBUG_PRINT(x)
-  #define DEBUG_PRINTLN(x)
-#endif
+#include <string.h>
+#include <Wire.h>
+#include "DisplayHandler.h"
 
 // ===== PIN DEFINITIONS =====
 // Buttons: 1->IO14, 2->IO18, 3->IO5, 4->IO17, 5->IO6, 6->IO12
@@ -61,39 +39,45 @@
 // SD Card: CS->IO38
 #define SD_CS_PIN 38
 
+// LDO_2 for SD power delivery
+#define LDO_2 39
+
 // Display: I2C, Address 0x3C
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
 #define OLED_ADDRESS 0x3C
 
 // ===== GLOBAL OBJECTS =====
-USBHIDKeyboard Keyboard;
-USBHIDConsumerControl ConsumerControl;
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+UMS3 ums3;
+DisplayHandler display(SCREEN_WIDTH, SCREEN_HEIGHT, OLED_ADDRESS);
 RotaryEncoder rotaryA(ROTARY_A_PIN_A, ROTARY_A_PIN_B, RotaryEncoder::LatchMode::FOUR3);
 RotaryEncoder rotaryB(ROTARY_B_PIN_A, ROTARY_B_PIN_B, RotaryEncoder::LatchMode::FOUR3);
-KeyboardLayoutWinCH keyboardLayout(&Keyboard);
-UMS3 ums3;
 
 // ===== CONFIGURATION =====
-String configFilePath = "/macropad_config.json";
+const char* generalConfigFile = "/general.json";
+const char* layerConfigPrefix = "/layer"; // layer1.json, layer2.json, etc.
 int currentLayer = 1;
 int maxLayers = 1;
 int maxButtons = 6;
-String displayMode = "layer";  // "off", "layer", "battery", "time"
+String displayMode = "layer";
 bool displayEnabled = true;
 String systemTime = "";
 String systemDate = "";
 
-// Firmware version
-const String FIRMWARE_VERSION = "1.0.2";
+// Store current layer config in RAM
+String currentLayerConfig = "";
 
-// ===== STATE VARIABLES =====Button
+const String FIRMWARE_VERSION = "1.0.3";
+
+// ===== STATE VARIABLES =====
 bool sdAvailable = false;
+bool displayAvailable = false; // Track if display initialized successfully
 bool uploading = false;
+bool generalConfigLoaded = false; // Track if general config is loaded
 String jsonBuffer = "";
-int rotaryAPosition = 0;
-int rotaryBPosition = 0;
+String generalConfig = ""; // Store general config in RAM
+
+// Rotary encoder positions
 int rotaryALastPosition = 0;
 int rotaryBLastPosition = 0;
 
@@ -107,90 +91,54 @@ unsigned long rotaryBButtonLastPress = 0;
 
 const unsigned long DEBOUNCE_DELAY = 50; // 50ms debounce
 
-// ===== BUTTON CONFIGURATION STRUCTURE =====
-struct ButtonConfig {
-  bool enabled;
-  String action;  // "Type Text", "Special Key", "Key combo", "Layer Switch", "None"
-  String key;     // Key value or text
-};
-
-struct KnobConfig {
-  String ccwAction;   // CCW rotation action
-  String cwAction;    // CW rotation action
-  String pressAction; // Press action
-  String ccwKey;     // CCW key value
-  String cwKey;      // CW key value
-  String pressKey;   // Press key value
-};
+// ===== FORWARD DECLARATIONS =====
+void initializeSD();
+void loadGeneralConfig();
+void parseGeneralConfig();
+void loadLayerConfig(int layerNumber);
+void saveConfiguration(String jsonString);
+String getLayerFileName(int layerNumber);
+void downloadConfig(bool useCurrentConfigPrefix);
+String getBatteryStatus();
+void handleSerial();
+void updateDisplay(String message);
+void updateDisplayMode();
 
 // ===== SETUP =====
 void setup() {
-  // For ESP32-S3 with "CDC on Boot" enabled in Arduino IDE:
-  // The USB stack (including CDC) is already initialized by the bootloader
-  // We do NOT need to call USB.begin() - it would reinitialize and break CDC
-  // We just need to:
-  // 1. Initialize Serial to use the existing CDC
-  // 2. Add HID devices to the existing USB stack
-  
   Serial.begin(115200);
   
-  // Wait for Serial to be ready (important for native USB)
-  // Give it time to enumerate - up to 5 seconds
-  unsigned long startTime = millis();
-  while (!Serial && (millis() - startTime < 5000)) {
+  // Wait for Serial to be ready
+  while (!Serial) {
     delay(10);
   }
   
-  // Additional delay to ensure USB CDC is fully enumerated
-  delay(1000);
-  
-  DEBUG_PRINTLN("PADAWAN: Starting...");
-  DEBUG_PRINTLN("PADAWAN: Serial/CDC initialized (from bootloader)");
-  
-  // Initialize USB HID - this adds HID devices to the existing USB stack
-  // The USB stack already supports CDC, and HID is added alongside it
-  // NO USB.begin() needed - it would interfere with the bootloader-initialized USB stack
-  Keyboard.begin();
-  ConsumerControl.begin();
-  
-  // Give USB stack time to add HID descriptors
-  delay(500);
-  
-  // Verify Serial is still available after HID initialization
-  if (Serial) {
-    DEBUG_PRINTLN("PADAWAN: USB HID initialized - Serial/CDC still available");
-  } else {
-    DEBUG_PRINTLN("PADAWAN: WARNING - Serial/CDC lost after HID init!");
+  // Clear any pending data
+  while (Serial.available() > 0) {
+    Serial.read();
   }
   
   // Initialize I2C for display
   Wire.begin();
+  Wire.setClock(100000); // 100kHz for stability
+  Wire.setTimeout(100); // 100ms timeout to prevent hangs
   
   // Initialize UMS3 board peripherals (call this after Wire.begin())
   ums3.begin();
-  DEBUG_PRINTLN("PADAWAN: UMS3 initialized");
   
   // Initialize display
-  if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS)) {
-    DEBUG_PRINTLN("PADAWAN: Display initialization failed!");
+  if (!display.begin()) {
+    Serial.println("DISPLAY_INIT_FAILED");
+    displayAvailable = false;
   } else {
-    DEBUG_PRINTLN("PADAWAN: Display initialized");
+    Serial.println("DISPLAY_INIT_OK");
+    displayAvailable = true;
     display.clearDisplay();
-    display.setTextSize(2);
-    display.setTextColor(SSD1306_WHITE);
-    display.setCursor(10, 10);
-    display.println("Starting...");
-    display.display();
-  }
-  
-  // Initialize SD card
-  SPI.begin();
-  if (!SD.begin(SD_CS_PIN)) {
-    DEBUG_PRINTLN("PADAWAN: SD card initialization failed!");
-    sdAvailable = false;
-  } else {
-    DEBUG_PRINTLN("PADAWAN: SD card initialized");
-    sdAvailable = true;
+    display.setTextSizeDirect(2);
+    display.setTextColorDirect(SSD1306_WHITE);
+    display.setCursorDirect(10, 10);
+    display.printlnDirect("Boot...");
+    display.displayUpdate();
   }
   
   // Initialize button pins
@@ -205,77 +153,468 @@ void setup() {
   pinMode(ROTARY_A_BUTTON_PIN, INPUT_PULLUP);
   pinMode(ROTARY_B_BUTTON_PIN, INPUT_PULLUP);
   
-  // Load configuration
-  if (sdAvailable) {
-    loadConfiguration();
-  } else {
-    DEBUG_PRINTLN("PADAWAN: ERROR - SD card required!");
-    updateDisplay("SD Error!");
-  }
-  
   // Initialize rotary encoders
   rotaryA.setPosition(0);
   rotaryB.setPosition(0);
   
-  DEBUG_PRINTLN("PADAWAN: Ready!");
-  updateDisplayMode();
+  // Initialize SD card
+  initializeSD();
+  
+  // Load general configuration
+  if (sdAvailable) {
+    loadGeneralConfig();
+  }
+  
+  // Load current layer configuration
+  if (sdAvailable) {
+    loadLayerConfig(currentLayer);
+  }
+  
+  // Update display after initialization
+  if (displayAvailable) {
+    updateDisplayMode();
+  }
+  
+  Serial.println("READY");
 }
 
 // ===== MAIN LOOP =====
 void loop() {
-  // Keep USB stack active (important for CDC to stay available)
-  // This ensures both CDC (Serial) and HID remain functional
-  if (Serial) {
-    // Serial is available - keep it alive
-    Serial.flush();
+  yield(); // Feed watchdog
+  
+  // Update USB stack
+  tud_task();
+  
+  // Parse general config on first loop iteration (after setup completes)
+  if (!generalConfigLoaded && generalConfig.length() > 0) {
+    parseGeneralConfig();
+    generalConfigLoaded = true;
+    yield();
   }
   
   // Handle serial communication
   handleSerial();
   
-  // Update rotary encoders
-  rotaryA.tick();
-  rotaryB.tick();
-  
-  // Check rotary encoder rotation
-  int newPosA = rotaryA.getPosition();
-  if (newPosA != rotaryALastPosition) {
-    // Swap direction mapping to fix CCW/CW being switched
-    if (newPosA > rotaryALastPosition) {
-      handleRotaryRotation("A", "ccw");  // Swapped
-    } else {
-      handleRotaryRotation("A", "cw");   // Swapped
-    }
-    rotaryALastPosition = newPosA;
-  }
-  
-  int newPosB = rotaryB.getPosition();
-  if (newPosB != rotaryBLastPosition) {
-    // Swap direction mapping to fix CCW/CW being switched
-    if (newPosB > rotaryBLastPosition) {
-      handleRotaryRotation("B", "ccw");  // Swapped
-    } else {
-      handleRotaryRotation("B", "cw");   // Swapped
-    }
-    rotaryBLastPosition = newPosB;
-  }
-  
-  // Check buttons
-  checkButtons();
-  
-  // Check rotary encoder buttons
-  checkRotaryButtons();
-  
-  // Update display periodically
+  // Update display periodically (every 2 seconds)
   static unsigned long lastDisplayUpdate = 0;
-  if (millis() - lastDisplayUpdate > 1000) {
-    if (!uploading) {
-      updateDisplayMode();
+  static String lastDisplayContent = ""; // Track last displayed content to avoid unnecessary updates
+  if (millis() - lastDisplayUpdate > 2000) {
+    if (displayEnabled && displayAvailable) {
+      String currentContent = "";
+      if (displayMode == "layer") {
+        currentContent = "Layer: " + String(currentLayer);
+      } else if (displayMode == "battery") {
+        String batteryResponse = getBatteryStatus();
+        int commaPos = batteryResponse.indexOf(',');
+        if (commaPos > 0) {
+          currentContent = "Bat: " + batteryResponse.substring(8, commaPos) + "%";
+        }
+      } else if (displayMode == "time") {
+        currentContent = systemTime.length() > 0 ? systemTime : "Time?";
+      }
+      
+      // Only update display if content changed
+      if (currentContent != lastDisplayContent) {
+        updateDisplayMode();
+        lastDisplayContent = currentContent;
+      }
     }
     lastDisplayUpdate = millis();
   }
   
-  delay(1); // Small delay to prevent overwhelming
+  delay(1);
+}
+
+// ===== SD CARD FUNCTIONS =====
+void initializeSD() {
+  // Enable LDO_2 for SD card power
+  pinMode(LDO_2, OUTPUT);
+  digitalWrite(LDO_2, HIGH);
+  delay(100);
+  
+  // Initialize SPI
+  SPI.begin();
+  pinMode(SD_CS_PIN, OUTPUT);
+  digitalWrite(SD_CS_PIN, HIGH);
+    
+  // Initialize SD card
+  if (!SD.begin(SD_CS_PIN)) {
+    sdAvailable = false;
+    Serial.println("SD_INIT_FAILED");
+  } else {
+    sdAvailable = true;
+    Serial.println("SD_INIT_OK");
+    }
+}
+
+// ===== CONFIGURATION MANAGEMENT =====
+String getLayerFileName(int layerNumber) {
+  return String(layerConfigPrefix) + String(layerNumber) + ".json";
+    }
+    
+void loadGeneralConfig() {
+  if (!sdAvailable) {
+      return;
+    }
+    
+  String jsonString;
+  File file = SD.open(generalConfigFile, FILE_READ);
+  if (!file) {
+      return;
+    }
+    
+  jsonString = "";
+  while (file.available()) {
+    jsonString += (char)file.read();
+  }
+  file.close();
+  
+  generalConfig = jsonString;
+      }
+
+void parseGeneralConfig() {
+  if (generalConfig.length() == 0) {
+      return;
+    }
+    
+  size_t docSize = 1024; // Small buffer for general config
+  DynamicJsonDocument doc(docSize);
+  
+  yield();
+  
+  DeserializationError error = deserializeJson(doc, generalConfig);
+  
+  yield();
+  
+  if (error) {
+    return;
+  }
+  
+  yield();
+  
+  // Parse general settings
+  if (doc.containsKey("display")) {
+    JsonObject displayObj = doc["display"];
+    if (displayObj.containsKey("mode")) {
+      displayMode = displayObj["mode"].as<String>();
+    }
+    if (displayObj.containsKey("enabled")) {
+      displayEnabled = displayObj["enabled"].as<bool>();
+    }
+  }
+  
+  yield();
+  
+  if (doc.containsKey("systemTime")) {
+    JsonObject timeObj = doc["systemTime"];
+    if (timeObj.containsKey("currentTime")) {
+      systemTime = timeObj["currentTime"].as<String>();
+    }
+    if (timeObj.containsKey("currentDate")) {
+      systemDate = timeObj["currentDate"].as<String>();
+    }
+  }
+  
+  yield();
+  
+  if (doc.containsKey("limits")) {
+    JsonObject limits = doc["limits"];
+    if (limits.containsKey("maxLayers")) {
+      maxLayers = limits["maxLayers"];
+    }
+    if (limits.containsKey("maxButtons")) {
+      maxButtons = limits["maxButtons"];
+    }
+  }
+  
+  yield();
+  
+  if (doc.containsKey("currentLayer")) {
+    currentLayer = doc["currentLayer"];
+  }
+  
+  yield();
+  
+  // Update display settings
+  if (doc.containsKey("display")) {
+    display.setEnabled(displayEnabled);
+  }
+  
+  // Update display mode after config is loaded
+  if (displayAvailable) {
+    updateDisplayMode();
+  }
+}
+
+void loadLayerConfig(int layerNumber) {
+  if (!sdAvailable) {
+    return;
+  }
+  
+  String fileName = getLayerFileName(layerNumber);
+  File file = SD.open(fileName.c_str(), FILE_READ);
+  if (!file) {
+    currentLayerConfig = "";
+    return;
+  }
+  
+  currentLayerConfig = "";
+  while (file.available()) {
+    currentLayerConfig += (char)file.read();
+  }
+  file.close();
+}
+
+void saveConfiguration(String jsonString) {
+  if (!sdAvailable) {
+    Serial.println("UPLOAD_FAIL: SD card not available");
+    return;
+  }
+  
+  yield(); // Feed watchdog before parsing
+  
+  // Use smaller buffer if possible, but allow larger for upload
+  size_t docSize = (jsonString.length() < 4096) ? 4096 : ((jsonString.length() < 8192) ? 8192 : 16384);
+  DynamicJsonDocument doc(docSize);
+  
+  yield();
+  
+  DeserializationError error = deserializeJson(doc, jsonString);
+  
+  yield(); // Feed watchdog after parsing
+  
+  if (error) {
+    Serial.println("UPLOAD_FAIL: " + String(error.c_str()));
+    return;
+  }
+  
+  yield();
+  
+  // Delete all old layer files first
+  for (int i = 1; i <= 10; i++) { // Max 10 layers
+    String fileName = getLayerFileName(i);
+    if (SD.exists(fileName.c_str())) {
+      SD.remove(fileName.c_str());
+    }
+    if (i % 3 == 0) { // Yield every 3 files
+      yield();
+    }
+  }
+  
+  yield();
+  
+  // Save general config
+  if (doc.containsKey("display") || doc.containsKey("systemTime") || doc.containsKey("limits") || doc.containsKey("currentLayer")) {
+    DynamicJsonDocument generalDoc(1024);
+    
+    yield();
+    
+    if (doc.containsKey("display")) {
+      generalDoc["display"] = doc["display"];
+    }
+    if (doc.containsKey("systemTime")) {
+      generalDoc["systemTime"] = doc["systemTime"];
+    }
+    if (doc.containsKey("limits")) {
+      generalDoc["limits"] = doc["limits"];
+    }
+    if (doc.containsKey("currentLayer")) {
+      generalDoc["currentLayer"] = doc["currentLayer"];
+    }
+    
+    yield();
+    
+    String generalJson;
+    serializeJson(generalDoc, generalJson);
+    
+    yield();
+    
+    if (SD.exists(generalConfigFile)) {
+      SD.remove(generalConfigFile);
+    }
+    
+    File generalFile = SD.open(generalConfigFile, FILE_WRITE);
+    if (generalFile) {
+      generalFile.print(generalJson);
+      generalFile.close();
+      generalConfig = generalJson;
+    }
+    
+    yield();
+  }
+  
+  // Update settings from new config (minimal parsing)
+  if (doc.containsKey("display")) {
+    JsonObject displayObj = doc["display"];
+    if (displayObj.containsKey("mode")) {
+      displayMode = displayObj["mode"].as<String>();
+    }
+    if (displayObj.containsKey("enabled")) {
+      displayEnabled = displayObj["enabled"].as<bool>();
+    }
+  }
+  
+  yield();
+  
+  if (doc.containsKey("systemTime")) {
+    JsonObject timeObj = doc["systemTime"];
+    if (timeObj.containsKey("currentTime")) {
+      systemTime = timeObj["currentTime"].as<String>();
+    }
+    if (timeObj.containsKey("currentDate")) {
+      systemDate = timeObj["currentDate"].as<String>();
+    }
+  }
+  
+  yield();
+  
+  if (doc.containsKey("limits")) {
+    JsonObject limits = doc["limits"];
+    if (limits.containsKey("maxLayers")) {
+      maxLayers = limits["maxLayers"];
+    }
+    if (limits.containsKey("maxButtons")) {
+      maxButtons = limits["maxButtons"];
+    }
+  }
+  
+  yield();
+  
+  if (doc.containsKey("currentLayer")) {
+    currentLayer = doc["currentLayer"];
+  }
+  
+  yield();
+  
+  // Save each layer to separate file
+  if (doc.containsKey("layers")) {
+    JsonArray layers = doc["layers"];
+    maxLayers = layers.size();
+    
+    yield();
+    
+    for (int i = 0; i < layers.size(); i++) {
+      JsonObject layer = layers[i];
+      
+      yield();
+      
+      String layerJson;
+      serializeJson(layer, layerJson);
+      
+      yield();
+      
+      String fileName = getLayerFileName(i + 1);
+      if (SD.exists(fileName.c_str())) {
+        SD.remove(fileName.c_str());
+  }
+      
+      yield();
+  
+      File layerFile = SD.open(fileName.c_str(), FILE_WRITE);
+      if (layerFile) {
+        layerFile.print(layerJson);
+        layerFile.close();
+}
+
+      yield(); // Yield after each layer
+    }
+    
+    yield();
+  
+    // Reload current layer config
+    loadLayerConfig(currentLayer);
+  }
+  
+  yield();
+  
+  // Update display after config save
+  if (displayAvailable) {
+    updateDisplayMode();
+  }
+  
+  Serial.println("UPLOAD_OK");
+}
+
+void downloadConfig(bool useCurrentConfigPrefix) {
+  if (!sdAvailable) {
+    Serial.println("DOWNLOAD_ERROR: SD card not available");
+    return;
+  }
+  
+  if (useCurrentConfigPrefix) {
+    Serial.print("CURRENT_CONFIG:");
+        } else {
+    Serial.print("CONFIG:");
+  }
+  
+  yield();
+  
+  // Send general config
+  File generalFile = SD.open(generalConfigFile, FILE_READ);
+  if (generalFile) {
+    Serial.print("{\"general\":");
+    int byteCount = 0;
+    while (generalFile.available()) {
+      Serial.write(generalFile.read());
+      if (++byteCount > 100) {
+        yield();
+        byteCount = 0;
+    }
+    }
+    generalFile.close();
+    Serial.print(",\"layers\":[");
+  }
+  
+  yield();
+  
+  // Send all layer configs
+  bool firstLayer = true;
+  for (int i = 1; i <= maxLayers; i++) {
+    String fileName = getLayerFileName(i);
+    File layerFile = SD.open(fileName.c_str(), FILE_READ);
+    if (layerFile) {
+      if (!firstLayer) {
+        Serial.print(",");
+    }
+      firstLayer = false;
+      
+      int byteCount = 0;
+      while (layerFile.available()) {
+        Serial.write(layerFile.read());
+        if (++byteCount > 100) {
+          yield();
+          byteCount = 0;
+  }
+      }
+      layerFile.close();
+    }
+    yield();
+  }
+  
+  Serial.println("]}");
+  
+  yield();
+  }
+  
+// ===== BATTERY STATUS =====
+String getBatteryStatus() {
+  float batteryVoltage = ums3.getBatteryVoltage();
+  float batteryPercentage = ((batteryVoltage - 3.0) / 1.2) * 100.0;
+  
+  if (batteryPercentage < 0) batteryPercentage = 0;
+  if (batteryPercentage > 100) batteryPercentage = 100;
+  
+  bool vbusPresent = ums3.getVbusPresent();
+  String status = vbusPresent ? "charging" : "discharging";
+  
+  String response = "BATTERY:";
+  response += String((int)batteryPercentage);
+  response += ",";
+  response += String(batteryVoltage, 2);
+  response += ",";
+  response += status;
+  
+  return response;
 }
 
 // ===== SERIAL COMMUNICATION =====
@@ -283,41 +622,42 @@ void handleSerial() {
   if (Serial.available() > 0) {
     String line = Serial.readStringUntil('\n');
     line.trim();
-    
-    DEBUG_PRINTLN("USB received: " + line);
-    
-    // Handle commands
+  
+    if (line.length() == 0) {
+    return;
+  }
+  
     if (line == "PING") {
       Serial.println("PONG");
-      return;
-    }
-    
+    return;
+  }
+  
     if (line == "DOWNLOAD_CONFIG") {
-      downloadConfig(false); // false = send "CONFIG:"
-      return;
-    }
-    
+      downloadConfig(false);
+    return;
+  }
+  
     if (line == "GET_CURRENT_CONFIG") {
-      downloadConfig(true); // true = send "CURRENT_CONFIG:"
-      return;
-    }
-    
+      downloadConfig(true);
+    return;
+  }
+  
     if (line == "UPLOAD_LAYER_CONFIG") {
       Serial.println("READY_FOR_LAYER_CONFIG");
-      return;
-    }
-    
+    return;
+  }
+  
     if (line == "BATTERY_STATUS") {
       String batteryResponse = getBatteryStatus();
       Serial.println(batteryResponse);
-      return;
-    }
-    
+    return;
+  }
+  
     if (line == "GET_VERSION") {
       Serial.println("VERSION:" + FIRMWARE_VERSION);
-      return;
-    }
-    
+    return;
+  }
+  
     if (line.startsWith("SET_DISPLAY_MODE:")) {
       String modeStr = line.substring(17);
       int commaPos = modeStr.indexOf(',');
@@ -328,6 +668,7 @@ void handleSerial() {
         displayMode = modeStr;
         displayEnabled = true;
       }
+      display.setEnabled(displayEnabled);
       updateDisplayMode();
       Serial.println("DISPLAY_MODE_SET");
       return;
@@ -341,986 +682,68 @@ void handleSerial() {
       Serial.println("TIME_SET");
       return;
     }
-    
+  
     if (line == "BEGIN_JSON") {
       uploading = true;
       jsonBuffer = "";
-      updateDisplay("Receiving...");
-      return;
-    }
-    
+      if (displayAvailable) {
+        updateDisplay("Receiving...");
+      }
+    return;
+  }
+  
     if (line == "END_JSON") {
       uploading = false;
+      if (displayAvailable) {
+        updateDisplay("Saving...");
+      }
       saveConfiguration(jsonBuffer);
-      updateDisplay("Done!");
-      delay(1000);
-      updateDisplayMode();
-      Serial.println("UPLOAD_OK");
-      return;
-    }
-    
+      if (displayAvailable) {
+        updateDisplay("Done!");
+        delay(500);
+        updateDisplayMode();
+      }
+    return;
+  }
+  
     if (uploading) {
       if (jsonBuffer.length() > 0) {
         jsonBuffer += "\n";
       }
       jsonBuffer += line;
-    }
-  }
-}
-
-// ===== CONFIGURATION MANAGEMENT =====
-void loadConfiguration() {
-  if (!sdAvailable) {
-    DEBUG_PRINTLN("PADAWAN: SD card not available");
     return;
   }
-  
-  File file = SD.open(configFilePath, FILE_READ);
-  if (!file) {
-    DEBUG_PRINTLN("PADAWAN: Config file not found");
-    return;
   }
-  
-  String jsonString = "";
-  while (file.available()) {
-    jsonString += (char)file.read();
-  }
-  file.close();
-  
-  DynamicJsonDocument doc(16384); // 16KB should be enough
-  DeserializationError error = deserializeJson(doc, jsonString);
-  
-  if (error) {
-    DEBUG_PRINTLN("PADAWAN: JSON parse error: " + String(error.c_str()));
-    return;
-  }
-  
-  // Update display settings
-  if (doc.containsKey("display")) {
-    JsonObject displayObj = doc["display"];
-    if (displayObj.containsKey("mode")) {
-      displayMode = displayObj["mode"].as<String>();
-    }
-    if (displayObj.containsKey("enabled")) {
-      displayEnabled = displayObj["enabled"].as<bool>();
-    }
-  }
-  
-  // Update system time
-  if (doc.containsKey("systemTime")) {
-    JsonObject timeObj = doc["systemTime"];
-    if (timeObj.containsKey("currentTime")) {
-      systemTime = timeObj["currentTime"].as<String>();
-    }
-    if (timeObj.containsKey("currentDate")) {
-      systemDate = timeObj["currentDate"].as<String>();
-    }
-  }
-  
-  // Update limits
-  if (doc.containsKey("limits")) {
-    JsonObject limits = doc["limits"];
-    if (limits.containsKey("maxLayers")) {
-      maxLayers = limits["maxLayers"];
-    }
-    if (limits.containsKey("maxButtons")) {
-      maxButtons = limits["maxButtons"];
-    }
-  }
-  
-  // Update current layer
-  if (doc.containsKey("currentLayer")) {
-    currentLayer = doc["currentLayer"];
-  }
-  
-  // Count layers from layers array
-  if (doc.containsKey("layers")) {
-    JsonArray layers = doc["layers"];
-    maxLayers = layers.size();
-  }
-  
-  DEBUG_PRINTLN("PADAWAN: Configuration loaded");
-  DEBUG_PRINTLN("  Layers: " + String(maxLayers));
-  DEBUG_PRINTLN("  Buttons: " + String(maxButtons));
-  DEBUG_PRINTLN("  Display Mode: " + displayMode);
-  DEBUG_PRINTLN("  Current Layer: " + String(currentLayer));
-}
-
-void saveConfiguration(String jsonString) {
-  if (!sdAvailable) {
-    DEBUG_PRINTLN("PADAWAN: SD card not available");
-    return;
-  }
-  
-  DynamicJsonDocument doc(16384);
-  DeserializationError error = deserializeJson(doc, jsonString);
-  
-  if (error) {
-    DEBUG_PRINTLN("PADAWAN: JSON parse error: " + String(error.c_str()));
-    Serial.println("UPLOAD_FAIL: " + String(error.c_str()));
-    return;
-  }
-  
-  // Update display settings from new config
-  if (doc.containsKey("display")) {
-    JsonObject displayObj = doc["display"];
-    if (displayObj.containsKey("mode")) {
-      displayMode = displayObj["mode"].as<String>();
-    }
-    if (displayObj.containsKey("enabled")) {
-      displayEnabled = displayObj["enabled"].as<bool>();
-    }
-  }
-  
-  // Update system time
-  if (doc.containsKey("systemTime")) {
-    JsonObject timeObj = doc["systemTime"];
-    if (timeObj.containsKey("currentTime")) {
-      systemTime = timeObj["currentTime"].as<String>();
-    }
-    if (timeObj.containsKey("currentDate")) {
-      systemDate = timeObj["currentDate"].as<String>();
-    }
-  }
-  
-  // Update limits
-  if (doc.containsKey("limits")) {
-    JsonObject limits = doc["limits"];
-    if (limits.containsKey("maxLayers")) {
-      maxLayers = limits["maxLayers"];
-    }
-    if (limits.containsKey("maxButtons")) {
-      maxButtons = limits["maxButtons"];
-    }
-  }
-  
-  // Update current layer
-  if (doc.containsKey("currentLayer")) {
-    currentLayer = doc["currentLayer"];
-  }
-  
-  // Count layers from layers array
-  if (doc.containsKey("layers")) {
-    JsonArray layers = doc["layers"];
-    maxLayers = layers.size();
-  }
-  
-  // Save to file
-  File file = SD.open(configFilePath, FILE_WRITE);
-  if (!file) {
-    DEBUG_PRINTLN("PADAWAN: Failed to open config file for writing");
-    Serial.println("UPLOAD_FAIL: File write error");
-    return;
-  }
-  
-  serializeJson(doc, file);
-  file.close();
-  
-  DEBUG_PRINTLN("PADAWAN: Configuration saved");
-}
-
-void downloadConfig(bool useCurrentConfigPrefix) {
-  if (!sdAvailable) {
-    Serial.println("DOWNLOAD_ERROR: SD card not available");
-    return;
-  }
-  
-  File file = SD.open(configFilePath, FILE_READ);
-  if (!file) {
-    Serial.println("DOWNLOAD_ERROR: Config file not found");
-    return;
-  }
-  
-  if (useCurrentConfigPrefix) {
-    Serial.print("CURRENT_CONFIG:");
-  } else {
-    Serial.print("CONFIG:");
-  }
-  
-  while (file.available()) {
-    Serial.write(file.read());
-  }
-  Serial.println();
-  file.close();
-}
-
-// ===== BATTERY STATUS =====
-String getBatteryStatus() {
-  // Get battery voltage from MAX17048
-  float batteryVoltage = ums3.getBatteryVoltage();
-  
-  // Calculate battery percentage from voltage
-  // LiPo typical range: 3.0V (empty) to 4.2V (full)
-  // Formula: percentage = ((voltage - 3.0) / (4.2 - 3.0)) * 100
-  float batteryPercentage = ((batteryVoltage - 3.0) / 1.2) * 100.0;
-  
-  // Clamp to valid range (0-100)
-  if (batteryPercentage < 0) batteryPercentage = 0;
-  if (batteryPercentage > 100) batteryPercentage = 100;
-  
-  // Check if USB power is present
-  bool vbusPresent = ums3.getVbusPresent();
-  
-  // Determine status
-  String status = vbusPresent ? "charging" : "discharging";
-  
-  // Format: BATTERY:percentage,voltage,status
-  String response = "BATTERY:";
-  response += String((int)batteryPercentage);
-  response += ",";
-  response += String(batteryVoltage, 2);
-  response += ",";
-  response += status;
-  
-  return response;
-}
-
-// ===== BUTTON HANDLING =====
-void checkButtons() {
-  int buttonPins[6] = {BUTTON_1_PIN, BUTTON_2_PIN, BUTTON_3_PIN, 
-                       BUTTON_4_PIN, BUTTON_5_PIN, BUTTON_6_PIN};
-  
-  for (int i = 0; i < 6; i++) {
-    bool currentState = !digitalRead(buttonPins[i]); // Inverted because of pull-up
-    
-    if (currentState && !buttonStates[i]) {
-      // Button pressed (with debounce)
-      if (millis() - buttonLastPress[i] > DEBOUNCE_DELAY) {
-        buttonStates[i] = true;
-        buttonLastPress[i] = millis();
-        handleButtonPress(i + 1); // Button IDs are 1-based
-      }
-    } else if (!currentState && buttonStates[i]) {
-      // Button released
-      buttonStates[i] = false;
-    }
-  }
-}
-
-void handleButtonPress(int buttonId) {
-  DEBUG_PRINTLN("Button " + String(buttonId) + " pressed");
-  
-  if (!sdAvailable) {
-    return;
-  }
-  
-  // Load configuration and get button action
-  File file = SD.open(configFilePath, FILE_READ);
-  if (!file) {
-    return;
-  }
-  
-  String jsonString = "";
-  while (file.available()) {
-    jsonString += (char)file.read();
-  }
-  file.close();
-  
-  DynamicJsonDocument doc(16384);
-  DeserializationError error = deserializeJson(doc, jsonString);
-  
-  if (error) {
-    DEBUG_PRINTLN("PADAWAN: JSON parse error in button handler");
-    return;
-  }
-  
-  // Find current layer
-  if (!doc.containsKey("layers")) {
-    return;
-  }
-  
-  JsonArray layers = doc["layers"];
-  int layerIndex = currentLayer - 1;
-  
-  if (layerIndex < 0 || layerIndex >= layers.size()) {
-    return;
-  }
-  
-  JsonObject layer = layers[layerIndex];
-  if (!layer.containsKey("buttons")) {
-    return;
-  }
-  
-  JsonObject buttons = layer["buttons"];
-  String buttonKey = String(buttonId);
-  
-  if (!buttons.containsKey(buttonKey)) {
-    return;
-  }
-  
-  JsonObject buttonConfig = buttons[buttonKey];
-  bool enabled = buttonConfig.containsKey("enabled") ? buttonConfig["enabled"].as<bool>() : true;
-  String action = buttonConfig.containsKey("action") ? buttonConfig["action"].as<String>() : "None";
-  String keyValue = buttonConfig.containsKey("key") ? buttonConfig["key"].as<String>() : "";
-  
-  if (!enabled || action == "None") {
-    return;
-  }
-  
-  executeButtonAction(action, keyValue);
-}
-
-void executeButtonAction(String action, String keyValue) {
-  DEBUG_PRINTLN("Executing button action: " + action + " - " + keyValue);
-  DEBUG_PRINTLN("KeyValue length: " + String(keyValue.length()));
-  DEBUG_PRINTLN("KeyValue bytes: ");
-  for (int i = 0; i < keyValue.length(); i++) {
-    DEBUG_PRINT(String((int)keyValue[i]) + " ");
-  }
-  DEBUG_PRINTLN("");
-  
-  if (action == "Type Text") {
-    // NUR für echten Text - NIE für Keycodes, Modifier, oder Sondertasten!
-    DEBUG_PRINTLN("Writing text: '" + keyValue + "'");
-    DEBUG_PRINTLN("Text length: " + String(keyValue.length()));
-    
-    // Verwende Keyboard.write() direkt für ASCII-Zeichen
-    // keyboardLayout.write() scheint nicht zu funktionieren, daher direkter Ansatz
-    for (unsigned int i = 0; i < keyValue.length(); i++) {
-      char c = keyValue[i];
-      DEBUG_PRINTLN("Sending char: '" + String(c) + "' (ASCII: " + String((int)c) + ")");
-      Keyboard.write(c);
-      delay(20); // Small delay between characters
-    }
-  } else if (action == "Special Key") {
-    if (keyValue.length() > 0) {
-      // Check if it's a media control key (Consumer Control)
-      uint16_t consumerCode = getConsumerCode(keyValue);
-      if (consumerCode != 0) {
-        // It's a media/volume control - use ConsumerControl
-        DEBUG_PRINTLN("Button pressing media control: " + keyValue + " (code: 0x" + String(consumerCode, HEX) + ")");
-        ConsumerControl.press(consumerCode);
-        ConsumerControl.release();
-        return;
-      }
-      
-      // Not a media control, try as regular keycode
-      uint8_t keycode = getKeycode(keyValue);
-      if (keycode != 0) {
-        DEBUG_PRINTLN("Button pressing special key: " + keyValue + " (code: 0x" + String(keycode, HEX) + ")");
-        
-        // Modifier keys need special handling - they're sent as modifier bits, not keycodes
-        if (keycode == 0xE3) {
-          // Windows Key (Left GUI)
-          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-          hidReport[0] = 0x08; // Left GUI modifier bit
-          tud_hid_report(1, hidReport, 8);
-          delay(100);
-          memset(hidReport, 0, 8);
-          tud_hid_report(1, hidReport, 8);
-          delay(20);
-          DEBUG_PRINTLN("Windows Key sent via TinyUSB (Report ID 1)");
-        } else if (keycode == 0xE0) {
-          // Left Control
-          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-          hidReport[0] = 0x01; // Left Control modifier bit
-          tud_hid_report(1, hidReport, 8);
-          delay(100);
-          memset(hidReport, 0, 8);
-          tud_hid_report(1, hidReport, 8);
-          delay(20);
-          DEBUG_PRINTLN("Left Control sent via TinyUSB (Report ID 1)");
-        } else if (keycode == 0xE1) {
-          // Left Shift
-          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-          hidReport[0] = 0x02; // Left Shift modifier bit
-          tud_hid_report(1, hidReport, 8);
-          delay(100);
-          memset(hidReport, 0, 8);
-          tud_hid_report(1, hidReport, 8);
-          delay(20);
-          DEBUG_PRINTLN("Left Shift sent via TinyUSB (Report ID 1)");
-        } else if (keycode == 0xE2) {
-          // Left Alt
-          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-          hidReport[0] = 0x04; // Left Alt modifier bit
-          tud_hid_report(1, hidReport, 8);
-          delay(100);
-          memset(hidReport, 0, 8);
-          tud_hid_report(1, hidReport, 8);
-          delay(20);
-          DEBUG_PRINTLN("Left Alt sent via TinyUSB (Report ID 1)");
-        } else if (keycode == 0xE6) {
-          // Right Alt (AltGr)
-          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-          hidReport[0] = 0x40; // Right Alt modifier bit
-          tud_hid_report(1, hidReport, 8);
-          delay(100);
-          memset(hidReport, 0, 8);
-          tud_hid_report(1, hidReport, 8);
-          delay(20);
-          DEBUG_PRINTLN("Right Alt (AltGr) sent via TinyUSB (Report ID 1)");
-        } else {
-          // Alle anderen Keys über TinyUSB direkt senden (Keyboard.press() funktioniert nicht zuverlässig auf ESP32-S3)
-          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-          hidReport[2] = keycode; // Erster Keycode-Slot (Byte 1 ist Reserved)
-          tud_hid_report(1, hidReport, 8); // Report ID 1 für Keyboard
-          // Arrow keys need longer delay
-          delay((keycode == 0x52 || keycode == 0x51) ? 100 : 50);
-          // Release
-          memset(hidReport, 0, 8);
-          tud_hid_report(1, hidReport, 8);
-          delay(20);
-          DEBUG_PRINTLN("Special key sent via TinyUSB (keycode: 0x" + String(keycode, HEX) + ", Report ID 1)");
-        }
-      } else {
-        DEBUG_PRINTLN("Button: Unknown special key: " + keyValue);
-      }
-    } else {
-      DEBUG_PRINTLN("Button: Special Key action but no key value provided");
-    }
-  } else if (action == "Key combo") {
-    if (keyValue.length() > 0) {
-      executeKeyCombo(keyValue);
-    } else {
-      DEBUG_PRINTLN("Button: Key combo action but no combo string provided");
-    }
-  } else if (action == "Volume Control") {
-    uint16_t consumerCode = getConsumerCode(keyValue);
-    if (consumerCode != 0) {
-      ConsumerControl.press(consumerCode);
-      ConsumerControl.release();
-    }
-  } else if (action == "Layer Switch") {
-    currentLayer++;
-    if (currentLayer > maxLayers) {
-      currentLayer = 1;
-    }
-    updateDisplayMode();
-    DEBUG_PRINTLN("Switched to layer " + String(currentLayer));
-  }
-}
-
-// ===== ROTARY ENCODER HANDLING =====
-void checkRotaryButtons() {
-  bool rotaryAState = !digitalRead(ROTARY_A_BUTTON_PIN);
-  bool rotaryBState = !digitalRead(ROTARY_B_BUTTON_PIN);
-  
-  if (rotaryAState && !rotaryAButtonState) {
-    if (millis() - rotaryAButtonLastPress > DEBOUNCE_DELAY) {
-      rotaryAButtonState = true;
-      rotaryAButtonLastPress = millis();
-      handleRotaryPress("A");
-    }
-  } else if (!rotaryAState) {
-    rotaryAButtonState = false;
-  }
-  
-  if (rotaryBState && !rotaryBButtonState) {
-    if (millis() - rotaryBButtonLastPress > DEBOUNCE_DELAY) {
-      rotaryBButtonState = true;
-      rotaryBButtonLastPress = millis();
-      handleRotaryPress("B");
-    }
-  } else if (!rotaryBState) {
-    rotaryBButtonState = false;
-  }
-}
-
-void handleRotaryPress(String knobLetter) {
-  DEBUG_PRINTLN("Rotary " + knobLetter + " - Press");
-  
-  if (!sdAvailable) {
-    return;
-  }
-  
-  // Load configuration
-  File file = SD.open(configFilePath, FILE_READ);
-  if (!file) {
-    return;
-  }
-  
-  String jsonString = "";
-  while (file.available()) {
-    jsonString += (char)file.read();
-  }
-  file.close();
-  
-  DynamicJsonDocument doc(16384);
-  DeserializationError error = deserializeJson(doc, jsonString);
-  
-  if (error) {
-    return;
-  }
-  
-  // Find current layer
-  if (!doc.containsKey("layers")) {
-    return;
-  }
-  
-  JsonArray layers = doc["layers"];
-  int layerIndex = currentLayer - 1;
-  
-  if (layerIndex < 0 || layerIndex >= layers.size()) {
-    return;
-  }
-  
-  JsonObject layer = layers[layerIndex];
-  if (!layer.containsKey("knobs")) {
-    return;
-  }
-  
-  JsonObject knobs = layer["knobs"];
-  if (!knobs.containsKey(knobLetter)) {
-    return;
-  }
-  
-  JsonObject knobConfig = knobs[knobLetter];
-  String pressAction = knobConfig.containsKey("pressAction") ? knobConfig["pressAction"].as<String>() : "None";
-  
-  // Handle pressKey - it might be null in JSON, so check for both null and empty string
-  String pressKey = "";
-  if (knobConfig.containsKey("pressKey")) {
-    if (knobConfig["pressKey"].is<const char*>()) {
-      pressKey = knobConfig["pressKey"].as<String>();
-      pressKey.trim(); // Remove whitespace
-    } else if (knobConfig["pressKey"].isNull()) {
-      pressKey = "";
-    } else if (knobConfig["pressKey"].is<String>()) {
-      pressKey = knobConfig["pressKey"].as<String>();
-      pressKey.trim(); // Remove whitespace
-    }
-  }
-  
-  DEBUG_PRINTLN("Rotary press - Action: '" + pressAction + "', Key: '" + pressKey + "' (length: " + String(pressKey.length()) + ")");
-  executeKnobAction(pressAction, pressKey);
-}
-
-void handleRotaryRotation(String knobLetter, String direction) {
-  DEBUG_PRINTLN("Rotary " + knobLetter + " - " + direction);
-  
-  if (!sdAvailable) {
-    return;
-  }
-  
-  // Load configuration
-  File file = SD.open(configFilePath, FILE_READ);
-  if (!file) {
-    return;
-  }
-  
-  String jsonString = "";
-  while (file.available()) {
-    jsonString += (char)file.read();
-  }
-  file.close();
-  
-  DynamicJsonDocument doc(16384);
-  DeserializationError error = deserializeJson(doc, jsonString);
-  
-  if (error) {
-    return;
-  }
-  
-  // Find current layer
-  if (!doc.containsKey("layers")) {
-    return;
-  }
-  
-  JsonArray layers = doc["layers"];
-  int layerIndex = currentLayer - 1;
-  
-  if (layerIndex < 0 || layerIndex >= layers.size()) {
-    return;
-  }
-  
-  JsonObject layer = layers[layerIndex];
-  if (!layer.containsKey("knobs")) {
-    return;
-  }
-  
-  JsonObject knobs = layer["knobs"];
-  if (!knobs.containsKey(knobLetter)) {
-    return;
-  }
-  
-  JsonObject knobConfig = knobs[knobLetter];
-  String action = direction == "cw" 
-    ? (knobConfig.containsKey("cwAction") ? knobConfig["cwAction"].as<String>() : "None")
-    : (knobConfig.containsKey("ccwAction") ? knobConfig["ccwAction"].as<String>() : "None");
-  
-  // Get the key value for this direction - handle null values properly
-  String keyValue = "";
-  if (direction == "cw") {
-    if (knobConfig.containsKey("cwKey")) {
-      if (knobConfig["cwKey"].is<const char*>()) {
-        keyValue = knobConfig["cwKey"].as<String>();
-      } else if (knobConfig["cwKey"].isNull()) {
-        keyValue = "";
-      }
-    }
-  } else {
-    if (knobConfig.containsKey("ccwKey")) {
-      if (knobConfig["ccwKey"].is<const char*>()) {
-        keyValue = knobConfig["ccwKey"].as<String>();
-      } else if (knobConfig["ccwKey"].isNull()) {
-        keyValue = "";
-      }
-    }
-  }
-  
-  DEBUG_PRINTLN("Rotary rotation - Direction: " + direction + ", Action: " + action + ", Key: '" + keyValue + "'");
-  executeKnobAction(action, keyValue);
-}
-
-void executeKnobAction(String action, String keyValue) {
-  if (action == "None" || action.length() == 0) {
-    DEBUG_PRINTLN("executeKnobAction: Action is None or empty, returning");
-    return;
-  }
-  
-  DEBUG_PRINTLN("Executing knob action: '" + action + "', keyValue: '" + keyValue + "' (length: " + String(keyValue.length()) + ")");
-  
-  if (action == "Increase Volume") {
-    ConsumerControl.press(0xE9); // VOLUME_INCREMENT
-    ConsumerControl.release();
-  } else if (action == "Decrease Volume") {
-    ConsumerControl.press(0xEA); // VOLUME_DECREMENT
-    ConsumerControl.release();
-  } else if (action == "Scroll Up") {
-    // UP_ARROW = 0x52 (from CircuitPython keycode_win_de.py)
-    // Verwende TinyUSB direkt, da Keyboard.press() auf ESP32-S3 Keycodes falsch interpretieren kann
-    uint8_t keycode = 0x52; // UP_ARROW
-    uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-    hidReport[2] = keycode; // Erster Keycode-Slot (Byte 1 ist Reserved)
-    tud_hid_report(1, hidReport, 8); // Report ID 1 für Keyboard
-    delay(50);
-    // Release
-    memset(hidReport, 0, 8);
-    tud_hid_report(1, hidReport, 8);
-    delay(20);
-    DEBUG_PRINTLN("Scroll Up executed via TinyUSB (keycode: 0x52, Report ID 1)");
-  } else if (action == "Scroll Down") {
-    // DOWN_ARROW = 0x51 (from CircuitPython keycode_win_de.py)
-    // Verwende TinyUSB direkt, da Keyboard.press() auf ESP32-S3 Keycodes falsch interpretieren kann
-    uint8_t keycode = 0x51; // DOWN_ARROW
-    uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-    hidReport[2] = keycode; // Erster Keycode-Slot (Byte 1 ist Reserved)
-    tud_hid_report(1, hidReport, 8); // Report ID 1 für Keyboard
-    delay(50);
-    // Release
-    memset(hidReport, 0, 8);
-    tud_hid_report(1, hidReport, 8);
-    delay(20);
-    DEBUG_PRINTLN("Scroll Down executed via TinyUSB (keycode: 0x51, Report ID 1)");
-  } else if (action == "Layer Switch" || action == "Switch Layer") {
-    currentLayer++;
-    if (currentLayer > maxLayers) {
-      currentLayer = 1;
-    }
-    updateDisplayMode();
-    DEBUG_PRINTLN("Switched to layer " + String(currentLayer));
-  } else if (action == "Type Text") {
-    // NUR für echten Text - NIE für Keycodes, Modifier, oder Sondertasten!
-    DEBUG_PRINTLN("Type Text action detected, keyValue length: " + String(keyValue.length()));
-    if (keyValue.length() > 0) {
-      DEBUG_PRINTLN("Typing text: '" + keyValue + "' (length: " + String(keyValue.length()) + ")");
-      // Verwende Keyboard.write() direkt für ASCII-Zeichen
-      for (unsigned int i = 0; i < keyValue.length(); i++) {
-        char c = keyValue[i];
-        DEBUG_PRINTLN("Sending char: '" + String(c) + "' (ASCII: " + String((int)c) + ")");
-        Keyboard.write(c);
-        delay(20); // Small delay between characters
-      }
-      DEBUG_PRINTLN("Type Text execution completed");
-    } else {
-      DEBUG_PRINTLN("Type Text action but no text provided (keyValue is empty)");
-    }
-  } else if (action == "Special Key") {
-    if (keyValue.length() > 0) {
-      // Check if it's a media control key (Consumer Control)
-      uint16_t consumerCode = getConsumerCode(keyValue);
-      if (consumerCode != 0) {
-        // It's a media/volume control - use ConsumerControl
-        DEBUG_PRINTLN("Knob pressing media control: " + keyValue + " (code: 0x" + String(consumerCode, HEX) + ")");
-        ConsumerControl.press(consumerCode);
-        ConsumerControl.release();
-        return;
-      }
-      
-      // Not a media control, try as regular keycode
-      uint8_t keycode = getKeycode(keyValue);
-      if (keycode != 0) {
-        DEBUG_PRINTLN("Knob pressing special key: " + keyValue + " (code: 0x" + String(keycode, HEX) + ")");
-        
-        // Modifier keys need special handling - they're sent as modifier bits, not keycodes
-        if (keycode == 0xE3) {
-          // Windows Key (Left GUI)
-          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-          hidReport[0] = 0x08; // Left GUI modifier bit
-          tud_hid_report(1, hidReport, 8);
-          delay(100);
-          memset(hidReport, 0, 8);
-          tud_hid_report(1, hidReport, 8);
-          delay(20);
-          DEBUG_PRINTLN("Windows Key sent via TinyUSB (Report ID 1)");
-        } else if (keycode == 0xE0) {
-          // Left Control
-          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-          hidReport[0] = 0x01; // Left Control modifier bit
-          tud_hid_report(1, hidReport, 8);
-          delay(100);
-          memset(hidReport, 0, 8);
-          tud_hid_report(1, hidReport, 8);
-          delay(20);
-          DEBUG_PRINTLN("Left Control sent via TinyUSB (Report ID 1)");
-        } else if (keycode == 0xE1) {
-          // Left Shift
-          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-          hidReport[0] = 0x02; // Left Shift modifier bit
-          tud_hid_report(1, hidReport, 8);
-          delay(100);
-          memset(hidReport, 0, 8);
-          tud_hid_report(1, hidReport, 8);
-          delay(20);
-          DEBUG_PRINTLN("Left Shift sent via TinyUSB (Report ID 1)");
-        } else if (keycode == 0xE2) {
-          // Left Alt
-          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-          hidReport[0] = 0x04; // Left Alt modifier bit
-          tud_hid_report(1, hidReport, 8);
-          delay(100);
-          memset(hidReport, 0, 8);
-          tud_hid_report(1, hidReport, 8);
-          delay(20);
-          DEBUG_PRINTLN("Left Alt sent via TinyUSB (Report ID 1)");
-        } else if (keycode == 0xE6) {
-          // Right Alt (AltGr)
-          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-          hidReport[0] = 0x40; // Right Alt modifier bit
-          tud_hid_report(1, hidReport, 8);
-          delay(100);
-          memset(hidReport, 0, 8);
-          tud_hid_report(1, hidReport, 8);
-          delay(20);
-          DEBUG_PRINTLN("Right Alt (AltGr) sent via TinyUSB (Report ID 1)");
-        } else {
-          // Alle anderen Keys über TinyUSB direkt senden (Keyboard.press() funktioniert nicht zuverlässig auf ESP32-S3)
-          uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-          hidReport[2] = keycode; // Erster Keycode-Slot (Byte 1 ist Reserved)
-          tud_hid_report(1, hidReport, 8); // Report ID 1 für Keyboard
-          // Arrow keys need longer delay
-          delay((keycode == 0x52 || keycode == 0x51) ? 100 : 50);
-          // Release
-          memset(hidReport, 0, 8);
-          tud_hid_report(1, hidReport, 8);
-          delay(20);
-          DEBUG_PRINTLN("Special key sent via TinyUSB (keycode: 0x" + String(keycode, HEX) + ", Report ID 1)");
-        }
-      } else {
-        DEBUG_PRINTLN("Knob: Unknown special key: " + keyValue);
-      }
-    } else {
-      DEBUG_PRINTLN("Knob: Special Key action but no key value provided");
-    }
-  } else if (action == "Key combo") {
-    if (keyValue.length() > 0) {
-      executeKeyCombo(keyValue);
-    } else {
-      DEBUG_PRINTLN("Knob: Key combo action but no combo string provided");
-    }
-  }
-}
-
-// ===== KEY COMBO EXECUTION =====
-void executeKeyCombo(String comboString) {
-  DEBUG_PRINTLN("Parsing key combo: " + comboString);
-  
-  // Parse combo like "Ctrl+C" or "Alt+Tab"
-  int plusPos = comboString.indexOf('+');
-  if (plusPos < 0) {
-    DEBUG_PRINTLN("No '+' found in combo string");
-    return;
-  }
-  
-  String modifierStr = comboString.substring(0, plusPos);
-  modifierStr.trim();
-  modifierStr.toUpperCase();
-  
-  String keyStr = comboString.substring(plusPos + 1);
-  keyStr.trim();
-  keyStr.toUpperCase();
-  
-  DEBUG_PRINTLN("Modifier: '" + modifierStr + "', Key: '" + keyStr + "'");
-  
-  uint8_t modifier = 0;
-  if (modifierStr == "CTRL" || modifierStr == "CONTROL") {
-    modifier = 0x01; // Left Control
-  } else if (modifierStr == "SHIFT") {
-    modifier = 0x02; // Left Shift
-  } else if (modifierStr == "ALT") {
-    modifier = 0x04; // Left Alt
-  } else if (modifierStr == "WIN" || modifierStr == "WINDOWS" || modifierStr == "WINDOWS KEY") {
-    modifier = 0x08; // Left GUI (bit 3)
-  }
-  
-  DEBUG_PRINTLN("Parsed modifier: 0x" + String(modifier, HEX) + " for '" + modifierStr + "'");
-  
-  uint8_t keycode = getKeycode(keyStr);
-  
-  DEBUG_PRINTLN("Modifier code: " + String(modifier) + ", Keycode: " + String(keycode));
-  
-  if (modifier != 0 && keycode != 0) {
-    DEBUG_PRINTLN("Executing key combo - modifier: 0x" + String(modifier, HEX) + ", keycode: 0x" + String(keycode, HEX));
-    
-    // Modifier müssen im Modifier-Byte gesetzt werden, nicht als normale Keycodes
-    // Verwende TinyUSB direkt für korrekte HID-Report-Struktur
-    // Report ID 1 ist normalerweise für Keyboard Reports
-    if (tud_hid_ready()) {
-      uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-      hidReport[0] = modifier; // Modifier-Byte (bit 0 = Left Ctrl, bit 1 = Left Shift, bit 2 = Left Alt, bit 3 = Left GUI)
-      hidReport[2] = keycode;  // Erster Keycode-Slot (Byte 1 ist Reserved)
-      tud_hid_report(1, hidReport, 8); // Report ID 1 für Keyboard
-      delay(100); // Länger halten für zuverlässigere Erkennung
-      // Release
-      memset(hidReport, 0, 8);
-      tud_hid_report(1, hidReport, 8);
-      delay(20);
-      DEBUG_PRINTLN("Key combo executed via TinyUSB (Report ID 1)");
-    } else {
-      // Fallback: Verwende USBHIDKeyboard Library mit korrekter Modifier-Behandlung
-      // Die Library unterstützt Modifier über press() mit Modifier-Keycodes
-      // Aber wir müssen es manuell machen, da press() nur einen Keycode akzeptiert
-      DEBUG_PRINTLN("TinyUSB not ready, trying alternative method...");
-      
-      // Alternative: Verwende Keyboard.press() mit Modifier als erstes Argument
-      // Aber USBHIDKeyboard unterstützt das nicht direkt, daher müssen wir
-      // die HID Reports manuell senden, auch wenn tud_hid_ready() false ist
-      
-      // Versuche es trotzdem mit tud_hid_report, auch wenn ready() false ist
-      uint8_t hidReport[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-      hidReport[0] = modifier;
-      hidReport[2] = keycode;
-      tud_hid_report(1, hidReport, 8);
-      delay(100);
-      memset(hidReport, 0, 8);
-      tud_hid_report(1, hidReport, 8);
-      delay(20);
-      DEBUG_PRINTLN("Key combo executed via TinyUSB (forced, Report ID 1)");
-    }
-  } else {
-    DEBUG_PRINTLN("Key combo failed - modifier or keycode is 0");
-    DEBUG_PRINTLN("  Modifier: " + String(modifier) + ", Keycode: " + String(keycode));
-    if (modifier == 0) {
-      DEBUG_PRINTLN("  ERROR: Modifier not recognized: '" + modifierStr + "'");
-    }
-    if (keycode == 0) {
-      DEBUG_PRINTLN("  ERROR: Keycode not found for: '" + keyStr + "'");
-    }
-  }
-}
-
-// ===== KEYCODE MAPPING =====
-uint8_t getKeycode(String key) {
-  key.toUpperCase();
-  
-  // Letters
-  if (key.length() == 1 && key[0] >= 'A' && key[0] <= 'Z') {
-    return 0x04 + (key[0] - 'A'); // A=0x04, B=0x05, etc.
-  }
-  
-  // Numbers
-  if (key == "0") return 0x27;
-  if (key == "1") return 0x1E;
-  if (key == "2") return 0x1F;
-  if (key == "3") return 0x20;
-  if (key == "4") return 0x21;
-  if (key == "5") return 0x22;
-  if (key == "6") return 0x23;
-  if (key == "7") return 0x24;
-  if (key == "8") return 0x25;
-  if (key == "9") return 0x26;
-  
-  // Special keys
-  if (key == "ESCAPE" || key == "ESC") return 0x29;
-  if (key == "ENTER") return 0x28;
-  if (key == "TAB") return 0x2B;
-  if (key == "SPACE" || key == "SPACEBAR") return 0x2C;
-  if (key == "BACKSPACE") return 0x2A;
-  if (key == "DELETE" || key == "DEL") return 0x4C;
-  if (key == "HOME") return 0x4A;
-  if (key == "END") return 0x4D;
-  if (key == "PAGE UP" || key == "PAGEUP") return 0x4B;
-  if (key == "PAGE DOWN" || key == "PAGEDOWN") return 0x4E;
-  if (key == "ARROW UP" || key == "UP" || key == "UP_ARROW") return 0x52;
-  if (key == "ARROW DOWN" || key == "DOWN" || key == "DOWN_ARROW") return 0x51;
-  if (key == "ARROW LEFT" || key == "LEFT" || key == "LEFT_ARROW") return 0x50;
-  if (key == "ARROW RIGHT" || key == "RIGHT" || key == "RIGHT_ARROW") return 0x4F;
-  if (key == "F1") return 0x3A;
-  if (key == "F2") return 0x3B;
-  if (key == "F3") return 0x3C;
-  if (key == "F4") return 0x3D;
-  if (key == "F5") return 0x3E;
-  if (key == "F6") return 0x3F;
-  if (key == "F7") return 0x40;
-  if (key == "F8") return 0x41;
-  if (key == "F9") return 0x42;
-  if (key == "F10") return 0x43;
-  if (key == "F11") return 0x44;
-  if (key == "F12") return 0x45;
-  if (key == "WINDOWS KEY" || key == "WINDOWS" || key == "WIN") return 0xE3; // Left GUI
-  if (key == "MENU KEY" || key == "MENU" || key == "APPLICATION") return 0x65;
-  
-  // Modifier keys (these need special handling - they're not regular keycodes)
-  if (key == "CTRL" || key == "CONTROL" || key == "LEFT CTRL" || key == "LEFT CONTROL") return 0xE0; // Left Control (special marker)
-  if (key == "SHIFT" || key == "LEFT SHIFT") return 0xE1; // Left Shift (special marker)
-  if (key == "ALT" || key == "LEFT ALT") return 0xE2; // Left Alt (special marker)
-  if (key == "ALT GR" || key == "ALTGR" || key == "RIGHT ALT") return 0xE6; // Right Alt (AltGr)
-  
-  return 0;
-}
-
-uint16_t getConsumerCode(String control) {
-  control.toUpperCase();
-  
-  if (control == "VOLUME UP") return 0xE9;
-  if (control == "VOLUME DOWN") return 0xEA;
-  if (control == "MUTE") return 0xE2;
-  if (control == "PLAY/PAUSE" || control == "PLAY_PAUSE") return 0xCD;
-  if (control == "NEXT TRACK" || control == "NEXT") return 0xB5;
-  if (control == "PREVIOUS TRACK" || control == "PREVIOUS" || control == "PREV") return 0xB6;
-  if (control == "STOP") return 0xB7;
-  
-  return 0;
 }
 
 // ===== DISPLAY FUNCTIONS =====
 void updateDisplay(String message) {
-  if (!displayEnabled) {
+  if (!displayEnabled || !displayAvailable) {
     return;
   }
   
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(10, 10);
-  display.println(message);
-  display.display();
+  // Don't check connection on every update - only update if display is available
+  display.showMessage(message);
 }
 
 void updateDisplayMode() {
-  if (!displayEnabled || displayMode == "off") {
-    display.clearDisplay();
-    display.display();
+  if (!displayEnabled || !displayAvailable || displayMode == "off") {
+    if (displayAvailable) {
+      display.clearAndUpdate();
+    }
     return;
   }
+  
+  // Don't check connection on every update - only update if display is available
   
   if (displayMode == "layer") {
     updateDisplay("Layer: " + String(currentLayer));
   } else if (displayMode == "battery") {
     float batteryVoltage = ums3.getBatteryVoltage();
-    
-    // Calculate battery percentage from voltage
     float batteryPercentage = ((batteryVoltage - 3.0) / 1.2) * 100.0;
     if (batteryPercentage < 0) batteryPercentage = 0;
     if (batteryPercentage > 100) batteryPercentage = 100;
-    
-    bool vbusPresent = ums3.getVbusPresent();
-    
-    String batteryText = String((int)batteryPercentage) + "%";
-    if (vbusPresent) {
-      batteryText += " CHG";
-    }
+    String batteryText = "Bat: " + String((int)batteryPercentage) + "%";
     updateDisplay(batteryText);
   } else if (displayMode == "time") {
     if (systemTime.length() > 0) {
@@ -1330,3 +753,6 @@ void updateDisplayMode() {
     }
   }
 }
+
+// ===== BUTTON AND ROTARY ENCODER HANDLING =====
+// Handler functions will be added here later

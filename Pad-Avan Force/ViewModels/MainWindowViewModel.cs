@@ -880,10 +880,10 @@ namespace PadAwan_Force.ViewModels
         {
             try
             {
-                await _configManager.SaveLayersAsync(Layers.ToList(), DisplayMode, DisplayEnabled, SelectedLayerIndex + 1);
-                
-                // Configuration is saved locally - user can send to device manually with "Send to Device" button
-                Console.WriteLine("Configuration saved locally - use 'Send to Device' button to transfer to FeatherS3");
+            await _configManager.SaveLayersAsync(Layers.ToList(), DisplayMode, DisplayEnabled, SelectedLayerIndex + 1);
+            
+            // Configuration is saved locally - user can send to device manually with "Send to Device" button
+            Console.WriteLine("Configuration saved locally - use 'Send to Device' button to transfer to FeatherS3");
                 DisplayText = "✅ Configuration saved";
             }
             catch (Exception ex)
@@ -1225,13 +1225,13 @@ namespace PadAwan_Force.ViewModels
                     {
                         string filePath = file.Path.LocalPath;
                         await File.WriteAllTextAsync(filePath, configJson);
-                        
-                        Console.WriteLine("=== Configuration downloaded successfully ===");
+                    
+                    Console.WriteLine("=== Configuration downloaded successfully ===");
                         Console.WriteLine($"Saved to: {filePath}");
-                        Console.WriteLine("=== Configuration Content ===");
-                        Console.WriteLine(configJson);
-                        Console.WriteLine("=== End Configuration ===");
-                        
+                    Console.WriteLine("=== Configuration Content ===");
+                    Console.WriteLine(configJson);
+                    Console.WriteLine("=== End Configuration ===");
+                    
                         DisplayText = $"✅ Config downloaded! Saved to: {Path.GetFileName(filePath)}";
                         System.Diagnostics.Debug.WriteLine($"Configuration downloaded and saved to: {filePath}");
                     }
@@ -1700,7 +1700,7 @@ namespace PadAwan_Force.ViewModels
                 }
                 
                 // Wait a moment for the device to be ready (non-blocking)
-                await Task.Delay(2000); // Wait 2 seconds for device to be ready
+                await Task.Delay(200); // Reduziert von 500ms - sehr schnelle Verbindung
                 
                 // Try to connect once (non-blocking)
                 bool connected = await _featherConnection.TryConnectAsync();
@@ -1710,8 +1710,8 @@ namespace PadAwan_Force.ViewModels
                 // Force UI update after initial connection attempt
                 ForceSyncAllWindows();
                 
-                // Set up periodic connection monitoring every 2 seconds for more stable updates
-                var timer = new System.Timers.Timer(2000);
+                // Set up periodic connection monitoring every 250ms for very fast updates
+                var timer = new System.Timers.Timer(250);  // Reduziert von 1000ms - viel schnellere Reaktion
                 timer.Elapsed += async (sender, e) =>
                 {
                     try
@@ -1721,10 +1721,10 @@ namespace PadAwan_Force.ViewModels
                         
                         if (_featherConnection.IsConnected)
                         {
-                            // Check if device is still actually connected (less aggressive)
-                            // Only check every 5 seconds (not every 2 seconds) to reduce false positives
+                            // Check if device is still actually connected (aggressive for fast detection)
+                            // Check every 1 second (4 * 250ms) for fast disconnection detection
                             _refreshCounter++;
-                            if (_refreshCounter >= 3) // 3 * 2 seconds = 6 seconds between checks
+                            if (_refreshCounter >= 4) // 4 * 250ms = 1 second between checks
                             {
                                 _refreshCounter = 0;
                                 
@@ -1733,7 +1733,7 @@ namespace PadAwan_Force.ViewModels
                                 if (!_featherConnection.IsDeviceStillConnected())
                                 {
                                     // Wait a bit and check again - Windows might temporarily remove port from list
-                                    await Task.Delay(1000); // Increased delay for more stability
+                                    await Task.Delay(500); // Reduziert von 1000ms - schnellere Reaktion
                                     if (!_featherConnection.IsDeviceStillConnected())
                                     {
                                         // Double-check with a ping before disconnecting
@@ -1744,13 +1744,13 @@ namespace PadAwan_Force.ViewModels
                                             await Task.Delay(500);
                                             bool pingResult2 = await _featherConnection.PingAsync();
                                             if (!pingResult2)
-                                            {
+                                        {
                                                 System.Diagnostics.Debug.WriteLine("Device disconnected - ping failed twice, updating UI");
-                                                _featherConnection.Disconnect();
-                                                ForceSyncAllWindows(); // Update UI immediately
-                                            }
-                                            else
-                                            {
+                                            _featherConnection.Disconnect();
+                                            ForceSyncAllWindows(); // Update UI immediately
+                                        }
+                                        else
+                                        {
                                                 System.Diagnostics.Debug.WriteLine("Device still connected - second ping succeeded");
                                             }
                                         }
@@ -1785,6 +1785,7 @@ namespace PadAwan_Force.ViewModels
                             // But skip if firmware update is in progress
                             if (!_featherConnection.IsUpdatingFirmware)
                             {
+                                // Reconnect immediately without delay - timer already provides spacing
                                 _ = Task.Run(async () =>
                                 {
                                     try
@@ -1794,12 +1795,12 @@ namespace PadAwan_Force.ViewModels
                                         if (reconnected)
                                         {
                                             System.Diagnostics.Debug.WriteLine("Reconnection successful");
+                                            ForceSyncAllWindows(); // Update UI immediately after connection
                                         }
                                         else
                                         {
                                             System.Diagnostics.Debug.WriteLine("Reconnection failed");
                                         }
-                                        ForceSyncAllWindows(); // Update UI immediately after connection attempt
                                     }
                                     catch (Exception ex)
                                     {

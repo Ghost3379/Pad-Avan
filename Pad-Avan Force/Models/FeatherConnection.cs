@@ -18,7 +18,7 @@ namespace PadAwan_Force.Models
     {
         // Constants for ESP32-S3/CircuitPython compatibility
         private const int Baud = 115200; // statt 9600
-        private const int ReadToMs = 3000;
+        private const int ReadToMs = 300;  // Reduziert von 1000ms - PONG sollte sofort kommen
         private const int WriteToMs = 2000;
         private const string Eol = "\n"; // falls Firmware "\r\n" nutzt: entsprechend ändern
 
@@ -33,10 +33,10 @@ namespace PadAwan_Force.Models
         
         // Flag to prevent reconnection during firmware update
         public bool IsUpdatingFirmware { get; set; } = false;
-        
+
         // Track when connection was established to allow grace period for Windows port registration
         private DateTime? _connectionEstablishedTime = null;
-        private const int ConnectionGracePeriodSeconds = 10; // Don't check connection health for 10 seconds after connection
+        private const int ConnectionGracePeriodSeconds = 2; // Reduziert von 10s - schnellere Erkennung
         
         // Lock to prevent multiple simultaneous connection attempts
         private readonly object _connectionLock = new object();
@@ -59,8 +59,8 @@ namespace PadAwan_Force.Models
             return new SerialPort(portName, Baud, Parity.None, 8, StopBits.One)
             {
                 Handshake = Handshake.None,
-                DtrEnable = true,          // wichtig bei ESP32
-                RtsEnable = true,          // wichtig bei ESP32
+                DtrEnable = false,         // ESP32-S3 kann durch DTR resetten - deaktivieren
+                RtsEnable = false,         // ESP32-S3 kann durch RTS resetten - deaktivieren
                 ReadTimeout = ReadToMs,
                 WriteTimeout = WriteToMs,
                 NewLine = Eol,
@@ -70,10 +70,15 @@ namespace PadAwan_Force.Models
 
         private static List<string> GetCandidatePorts()
         {
+            // Schnell alle Ports holen
             var ports = SerialPort.GetPortNames().ToList();
             
 #if WINDOWS
             // Optional: Filter for ESP32/Adafruit VID:PID (303A:80D7)
+            // ABER: WMI ist sehr langsam - nur verwenden wenn es nicht zu viele Ports gibt
+            // Oder: Erst alle Ports testen, dann filtern nur wenn nötig
+            if (ports.Count <= 10) // Nur filtern wenn nicht zu viele Ports
+            {
             try
             {
                 var filteredPorts = new List<string>();
@@ -94,13 +99,14 @@ namespace PadAwan_Force.Models
                 
                 if (filteredPorts.Any())
                 {
-                    System.Diagnostics.Debug.WriteLine($"Found ESP32 ports: {string.Join(", ", filteredPorts)}");
-                    return filteredPorts;
+                        // ESP32-Ports zuerst testen (höhere Priorität)
+                        return filteredPorts.Concat(ports.Except(filteredPorts)).ToList();
                 }
             }
-            catch (Exception ex)
+                catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"VID/PID filtering failed: {ex.Message}");
+                    // Stille Fehlerbehandlung - WMI kann langsam/fehlerhaft sein
+                }
             }
 #endif
             
@@ -138,12 +144,16 @@ namespace PadAwan_Force.Models
                         return true;
                     }
                     Disconnect();
-                    await Task.Delay(300);
+                    await Task.Delay(100);  // Reduziert von 300ms
                 }
 
                 // 2) Ports sammeln (optional erst nach VID/PID filtern)
                 var ports = GetCandidatePorts();
-                System.Diagnostics.Debug.WriteLine($"Found {ports.Count} candidate ports: {string.Join(", ", ports)}");
+                // Debug-Output nur wenn viele Ports (Performance)
+                if (ports.Count > 3)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Found {ports.Count} candidate ports");
+                }
                 
                 foreach (var port in ports)
                 {
@@ -162,7 +172,7 @@ namespace PadAwan_Force.Models
                         {
                             SerialPort.Open();
                             // nach Open kurz stabilisieren lassen
-                            await Task.Delay(200);
+                            await Task.Delay(50);  // Reduziert von 100ms - sehr schnelle Verbindung
                             SerialPort.DiscardInBuffer();
                             SerialPort.DiscardOutBuffer();
 
@@ -194,13 +204,13 @@ namespace PadAwan_Force.Models
                 // This prevents overwriting a successful connection with "n/c" due to race conditions
                 if (!IsConnected)
                 {
-                    IsConnected = false;
-                    ComPort = "None";
-                    Status = "n/c";
-                    Color = 0xFF0000;
-                    Battery = 0;
-                    OnConnectionStatusChanged();
-                    System.Diagnostics.Debug.WriteLine("No FeatherS3 device found on any COM port");
+                IsConnected = false;
+                ComPort = "None";
+                Status = "n/c";
+                Color = 0xFF0000;
+                Battery = 0;
+                OnConnectionStatusChanged();
+                System.Diagnostics.Debug.WriteLine("No FeatherS3 device found on any COM port");
                 }
                 else
                 {
@@ -216,12 +226,12 @@ namespace PadAwan_Force.Models
                 // Don't change status if we're already connected - this prevents overwriting a good connection
                 if (!IsConnected)
                 {
-                    IsConnected = false;
-                    ComPort = "None";
-                    Status = $"Error: {ex.Message}";
-                    Color = 0xFF0000;
-                    Battery = 0;
-                    OnConnectionStatusChanged();
+                IsConnected = false;
+                ComPort = "None";
+                Status = $"Error: {ex.Message}";
+                Color = 0xFF0000;
+                Battery = 0;
+                OnConnectionStatusChanged();
                 }
                 return false;
             }
@@ -233,25 +243,34 @@ namespace PadAwan_Force.Models
             {
                 using var test = CreatePort(portName);
                 test.Open();
-                await Task.Delay(150);             // kurze Stabilisierung
+                await Task.Delay(50);             // Reduziert von 100ms - sehr schnelle Verbindung
                 test.DiscardInBuffer();
                 test.DiscardOutBuffer();
 
                 // PING schicken
-                test.WriteLine("PING");
+                test.Write("PING\n");  // Explizit \n statt WriteLine für bessere Kontrolle
+                test.BaseStream.Flush();  // Explizit flushen
+                await Task.Delay(10);  // Reduziert von 20ms - sehr schnelle Antwort
+                
                 var started = DateTime.UtcNow;
+                // Reduzierter Timeout - PONG sollte innerhalb von 200ms kommen
+                int timeoutMs = 200;
 
-                while ((DateTime.UtcNow - started).TotalMilliseconds < ReadToMs)
+                while ((DateTime.UtcNow - started).TotalMilliseconds < timeoutMs)
+                {
+                    // Prüfe ob Daten verfügbar sind, bevor ReadLine() aufgerufen wird
+                    if (test.BytesToRead > 0)
                 {
                     try
                     {
-                        // ReadLine nutzt test.NewLine
                         var line = test.ReadLine()?.Trim();
                         if (!string.IsNullOrEmpty(line))
                         {
                             if (line.Equals("PONG", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): PONG received - port is valid!");
                                 return true;
-
+                                }
                             // optional: Bootmeldungen überspringen und weiter lesen
                         }
                     }
@@ -259,19 +278,25 @@ namespace PadAwan_Force.Models
                     {
                         // weiter warten bis Gesamttimeout
                     }
-                    await Task.Delay(10);
+                        catch
+                        {
+                            // Stille Fehlerbehandlung - kein Debug-Output für Performance
+                        }
+                    }
+                    await Task.Delay(2);  // Reduziert von 5ms - sehr schnelle Reaktion
                 }
 
+                // Kein Debug-Output bei Timeout für Performance
                 return false;
             }
             catch (UnauthorizedAccessException)
             {
-                // Port von anderem Prozess belegt (z. B. dein Python-Tester / VS Serial Monitor)
+                // Port von anderem Prozess belegt - stille Behandlung
                 return false;
             }
-            catch (Exception ex)
+            catch
             {
-                System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}) error: {ex.Message}");
+                // Stille Fehlerbehandlung - kein Debug-Output für Performance
                 return false;
             }
         }
@@ -467,10 +492,15 @@ namespace PadAwan_Force.Models
             try
             {
                 sp.DiscardInBuffer();
-                sp.WriteLine("PING");
+                sp.Write("PING\n");  // Explizit \n statt WriteLine für bessere Kontrolle
+                sp.BaseStream.Flush();  // Explizit flushen
+                await Task.Delay(10);  // Reduziert von 20ms - sehr schnelle Antwort
 
-                var deadline = DateTime.UtcNow.AddMilliseconds(1500);
+                var deadline = DateTime.UtcNow.AddMilliseconds(300);  // Reduziert von 1000ms - PONG sollte sofort kommen
                 while (DateTime.UtcNow < deadline)
+                {
+                    // Prüfe ob Daten verfügbar sind, bevor ReadLine() aufgerufen wird
+                    if (sp.BytesToRead > 0)
                 {
                     try
                     {
@@ -482,8 +512,16 @@ namespace PadAwan_Force.Models
                             if (ok) return true;
                         }
                     }
-                    catch (TimeoutException) { /* weiter bis deadline */ }
-                    await Task.Delay(10);
+                        catch (TimeoutException) 
+                        { 
+                            // weiter warten bis deadline
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"PingAsync read error: {ex.Message}");
+                        }
+                    }
+                    await Task.Delay(5);  // Reduziert von 10ms - schnellere Reaktion
                 }
                 System.Diagnostics.Debug.WriteLine("Ping: timeout");
                 return false;

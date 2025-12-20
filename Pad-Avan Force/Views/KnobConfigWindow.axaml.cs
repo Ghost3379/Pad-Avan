@@ -693,7 +693,7 @@ namespace PadAwan_Force.Views
                 };
 
                 // Add all the key options
-                string[] keyOptions = { "Ctrl", "Alt", "Shift", "Win", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "Space", "Enter", "Tab", "Esc", "Backspace", "Delete", "Home", "End", "Page Up", "Page Down", "Arrow Up", "Arrow Down", "Arrow Left", "Arrow Right", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "Play/Pause", "Next Track", "Previous Track", "Stop", "Volume Up", "Volume Down", "Mute" };
+                string[] keyOptions = { "Ctrl", "Alt", "Shift", "Win", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "Space", "Enter", "Tab", "Esc", "Backspace", "Delete", "Home", "End", "Page Up", "Page Down", "Arrow Up", "Arrow Down", "Arrow Left", "Arrow Right", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "Play/Pause", "Next Track", "Previous Track", "Stop", "Volume Up", "Volume Down", "Mute", "Left Mouse", "Right Mouse", "Middle Mouse" };
                 
                 foreach (string key in keyOptions)
                 {

@@ -153,6 +153,9 @@
           <ComboBoxItem Content="Volume Up"/>
           <ComboBoxItem Content="Volume Down"/>
           <ComboBoxItem Content="Mute"/>
+          <ComboBoxItem Content="Left Mouse"/>
+          <ComboBoxItem Content="Right Mouse"/>
+          <ComboBoxItem Content="Middle Mouse"/>
         </ComboBox>
       </StackPanel>
 
@@ -228,6 +231,9 @@
                   <ComboBoxItem Content="F10"/>
                   <ComboBoxItem Content="F11"/>
                   <ComboBoxItem Content="F12"/>
+                  <ComboBoxItem Content="Left Mouse"/>
+                  <ComboBoxItem Content="Right Mouse"/>
+                  <ComboBoxItem Content="Middle Mouse"/>
                 </ComboBox>
               </Border>
           </StackPanel>
