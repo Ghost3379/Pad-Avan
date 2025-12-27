@@ -7,11 +7,9 @@ A powerful, customizable macro pad with 6 buttons and 2 rotary encoders, featuri
 
 🌐 **Website**: [https://pad-avan.base44.app](https://pad-avan.base44.app)
 
-<<<<<<< HEAD
-![Padawan](https://img.shields.io/badge/Version-1.0.3-blue)
+
 =======
-![Pad-Avan](https://img.shields.io/badge/Version-1.0.0-blue)
->>>>>>>
+![Pad-Avan](https://img.shields.io/badge/Version-1.3.0-blue)
 ![.NET](https://img.shields.io/badge/.NET-8.0-purple)
 ![Avalonia](https://img.shields.io/badge/Avalonia-11.0-green)
 ![Arduino](https://img.shields.io/badge/Arduino-ESP32--S3-orange)
