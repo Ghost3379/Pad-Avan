@@ -310,9 +310,9 @@ Configurations are stored as JSON:
 - [x] Multi-file JSON config structure
 - [x] Improved connection stability
 - [ ] Button and knob action handlers (in progress)
-- [ ] GitHub API integration for updates
+- [x] GitHub API integration for updates
 - [ ] esptool integration for firmware flashing
-- [ ] Custom key combo builder improvements
+- [x] Custom key combo builder improvements
 - [ ] Macro recording/playback
 - [ ] RGB LED support (if hardware added)
 - [ ] Wireless mode (Bluetooth HID)
@@ -337,17 +337,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Pad-Avan-Force** desktop app built with [Avalonia UI](https://avaloniaui.net/)
 - Inspired by the macro pad community
 
-## 📝 Naming Convention
-
-- **Pad-Avan** = The macro pad hardware & firmware (Arduino ESP32-S3)
-- **Pad-Avan-Force** = The desktop configuration software (Avalonia UI)
-
-The "Force" in Pad-Avan-Force refers to the software being the "force" that configures the Pad-Avan macro pad.
-
-## 🌐 Website
-
-Visit our website for more information, documentation, and updates:
-- **Website**: [https://Pad-Avan-force.base44.app](https://Pad-Avan-force.base44.app)
 
 ## 📧 Contact
 
