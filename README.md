@@ -1,13 +1,17 @@
-# Padawan
+# Pad-Avan
 
 A powerful, customizable macro pad with 6 buttons and 2 rotary encoders, featuring a desktop configuration application built with Avalonia UI.
 
-**Padawan** = Hardware/Firmware (Arduino ESP32-S3)  
-**PadAwan-Force** = Desktop Configuration Software (Avalonia UI)
+**Pad-Avan** = Hardware/Firmware (Arduino ESP32-S3)  
+**Pad-Avan-Force** = Desktop Configuration Software (Avalonia UI)
 
-🌐 **Website**: [https://padawan-force.base44.app](https://padawan-force.base44.app)
+🌐 **Website**: [https://pad-avan.base44.app](https://pad-avan.base44.app)
 
+<<<<<<< HEAD
 ![Padawan](https://img.shields.io/badge/Version-1.0.3-blue)
+=======
+![Pad-Avan](https://img.shields.io/badge/Version-1.0.0-blue)
+>>>>>>> 1907bc308604ee760159c1007ff690f4b946aa28
 ![.NET](https://img.shields.io/badge/.NET-8.0-purple)
 ![Avalonia](https://img.shields.io/badge/Avalonia-11.0-green)
 ![Arduino](https://img.shields.io/badge/Arduino-ESP32--S3-orange)
@@ -21,7 +25,7 @@ A powerful, customizable macro pad with 6 buttons and 2 rotary encoders, featuri
 - **SD SPI Storage Module** (2GB) - Integrated storage module (not a physical SD card) for storing configurations
 - **USB HID** - Works as a standard keyboard/consumer control device
 
-### Desktop Application (PadAwan-Force)
+### Desktop Application (Pad- Avan-Force)
 - **Cross-Platform UI** - Built with Avalonia UI (Windows, macOS, Linux)
 - **Layer Management** - Create and manage multiple configuration layers
 - **Visual Configuration** - Easy-to-use interface for buttons and knobs
@@ -59,10 +63,17 @@ A powerful, customizable macro pad with 6 buttons and 2 rotary encoders, featuri
 ### 2. Firmware Installation
 
 **Choose the correct firmware version:**
+<<<<<<< HEAD
 - **Feather S3D** (recommended): Uses MAX chip for battery measurement
   - Use: `FeatherS3 scripts/Arduino version/padavan_fs3d/padavan_fs3d.ino`
 - **Feather S3** (legacy): Uses voltage divider for battery measurement
   - Use: `FeatherS3 scripts/Arduino version/padavan_fs3/padavan_fs3.ino` (if available)
+=======
+- **Feather S3** (older): Uses voltage divider for battery measurement
+  - Use: `FeatherS3 scripts/Arduino version/Pad-Avan fs3/Pad-Avan_fs3.ino`
+- **Feather S3D** (newer): Uses MAX chip for battery measurement
+  - Use: `FeatherS3 scripts/Arduino version/Pad-Avan fs3d/Pad-Avan_fs3d.ino`
+>>>>>>> 1907bc308604ee760159c1007ff690f4b946aa28
 
 #### Option A: Build from Source
 1. Open the appropriate `.ino` file for your board in Arduino IDE
@@ -80,8 +91,8 @@ A powerful, customizable macro pad with 6 buttons and 2 rotary encoders, featuri
 5. Upload the sketch
 
 #### Option B: Flash Pre-built Firmware (via Update System)
-1. Connect your Padawan device
-2. Open **PadAwan-Force** desktop application
+1. Connect your Pad-Avan device
+2. Open **Pad-Avan-Force** desktop application
 3. Click **Update** → **Check for Updates**
 4. If a new firmware version is available, click **Update Firmware**
 5. The application will automatically download and flash the `.bin` file from GitHub Releases
@@ -93,7 +104,7 @@ A powerful, customizable macro pad with 6 buttons and 2 rotary encoders, featuri
 #### Building from Source
 
 ```bash
-cd PadAwan-Force
+cd Pad-Avan-Force
 dotnet restore
 dotnet build
 dotnet run
@@ -101,8 +112,8 @@ dotnet run
 
 #### Running the Application
 
-1. Connect your **Padawan** device via USB
-2. Launch the **PadAwan-Force** desktop application
+1. Connect your **Pad-Avan** device via USB
+2. Launch the **Pad-Avan-Force** desktop application
 3. Select the COM port from the dropdown
 4. Click "Connect"
 5. Start configuring your buttons and knobs!
@@ -148,27 +159,40 @@ Configure the OLED display to show:
 ## 🏗️ Project Structure
 
 ```
+<<<<<<< HEAD
 Padawan/
 ├── Pad-Avan Force/              # Desktop configuration software (Avalonia UI)
+=======
+Pad-Avan/
+├── Pad-Avan-Force/              # Desktop configuration software (Avalonia UI)
+>>>>>>> 1907bc308604ee760159c1007ff690f4b946aa28
 │   ├── Models/                 # Data models
 │   ├── ViewModels/             # MVVM view models
 │   ├── Views/                  # UI views (XAML)
 │   └── Assets/                 # Icons and resources
 │
-└── FeatherS3 scripts/           # Padawan firmware
+└── FeatherS3 scripts/           # Pad-Avan firmware
     ├── Arduino version/        # Current firmware (Arduino)
+<<<<<<< HEAD
     │   ├── padavan_fs3d/       # Feather S3D firmware (MAX chip) - RECOMMENDED
     │   │   ├── padavan_fs3d.ino
     │   │   ├── DisplayHandler.h
     │   │   └── KeyboardLayoutWinCH.h
     │   └── padavan_fs3/        # Feather S3 firmware (voltage divider) - Legacy
     │       └── padavan_fs3.ino
+=======
+    │   ├── Pad-Avan fs3/        # Feather S3 firmware (voltage divider)
+    │   │   └── Pad-Avan_fs3.ino
+    │   └── Pad-Avan fs3d/       # Feather S3D firmware (MAX chip)
+    │       ├── Pad-Avan_fs3d.ino
+    │       └── KeyboardLayoutWinCH.h
+>>>>>>> 1907bc308604ee760159c1007ff690f4b946aa28
     └── cpy/                    # Legacy CircuitPython version (deprecated)
 ```
 
 **Naming Convention:**
-- **Padawan** = The macro pad hardware & firmware (Arduino)
-- **PadAwan-Force** = The desktop configuration software (Avalonia UI)
+- **Pad-Avan** = The macro pad hardware & firmware (Arduino)
+- **Pad-Avan-Force** = The desktop configuration software (Avalonia UI)
 
 **Firmware Versions:**
 - **padavan_fs3d**: For Unexpected Maker Feather S3D (uses MAX chip for battery measurement) - **RECOMMENDED**
@@ -177,7 +201,7 @@ Padawan/
 
 ## 📦 Creating Firmware Releases
 
-When creating a new **Padawan** firmware release on GitHub:
+When creating a new **Pad-Avan** firmware release on GitHub:
 
 1. **Build the firmware** in Arduino IDE:
    - Open the appropriate firmware file:
@@ -185,16 +209,16 @@ When creating a new **Padawan** firmware release on GitHub:
      - `FeatherS3 scripts/Arduino version/padavan_fs3/padavan_fs3.ino` (for Feather S3 - Legacy)
    - Sketch → Export compiled Binary
    - The `.bin` file will be created in the same folder as the `.ino` file
-   - File name will be something like: `padawan_fs3d.ino.bin` or `padawan_fs3d.bin`
+   - File name will be something like: `Pad-Avan_fs3d.ino.bin` or `Pad-Avan_fs3d.bin`
 
 2. **Create a GitHub Release**:
-   - Go to [Releases](https://github.com/Ghost3379/PadAwan/releases)
+   - Go to [Releases](https://github.com/Ghost3379/Pad-Avan/releases)
    - Click "Draft a new release"
    - **Tag version**: `v1.0.0` (or `firmware-v1.0.0` for firmware-only releases)
-   - **Release title**: `Padawan Firmware v1.0.0`
+   - **Release title**: `Pad-Avan Firmware v1.0.0`
    - **Description**: Include version info, e.g.:
      ```
-     ## Padawan Firmware v1.0.0
+     ## Pad-Avan Firmware v1.0.0
      
      Firmware: v1.0.0
      Software: v1.0.0
@@ -208,7 +232,7 @@ When creating a new **Padawan** firmware release on GitHub:
      - Or click "Choose your files" and select the `.bin` file
    - Click "Publish release"
 
-3. **Users can update** via the **PadAwan-Force** desktop app:
+3. **Users can update** via the **Pad-Avan-Force** desktop app:
    - The app automatically detects the `.bin` file in the release assets
    - One-click firmware update without manual flashing!
    - No need to download Arduino IDE or esptool manually
@@ -313,21 +337,21 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- **Padawan** firmware built with [TinyUSB](https://github.com/hathach/tinyusb) for USB HID support
-- **PadAwan-Force** desktop app built with [Avalonia UI](https://avaloniaui.net/)
+- **Pad-Avan** firmware built with [TinyUSB](https://github.com/hathach/tinyusb) for USB HID support
+- **Pad-Avan-Force** desktop app built with [Avalonia UI](https://avaloniaui.net/)
 - Inspired by the macro pad community
 
 ## 📝 Naming Convention
 
-- **Padawan** = The macro pad hardware & firmware (Arduino ESP32-S3)
-- **PadAwan-Force** = The desktop configuration software (Avalonia UI)
+- **Pad-Avan** = The macro pad hardware & firmware (Arduino ESP32-S3)
+- **Pad-Avan-Force** = The desktop configuration software (Avalonia UI)
 
-The "Force" in PadAwan-Force refers to the software being the "force" that configures the Padawan macro pad.
+The "Force" in Pad-Avan-Force refers to the software being the "force" that configures the Pad-Avan macro pad.
 
 ## 🌐 Website
 
 Visit our website for more information, documentation, and updates:
-- **Website**: [https://padawan-force.base44.app](https://padawan-force.base44.app)
+- **Website**: [https://Pad-Avan-force.base44.app](https://Pad-Avan-force.base44.app)
 
 ## 📧 Contact
 
