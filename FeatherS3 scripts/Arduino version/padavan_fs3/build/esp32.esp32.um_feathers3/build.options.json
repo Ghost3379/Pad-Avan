@@ -1,0 +1,10 @@
+{
+  "additionalFiles": "..\\..,..\\..",
+  "builtInLibrariesFolders": "C:\\Users\\nicol\\AppData\\Local\\Arduino15\\libraries",
+  "compiler.optimization_flags": "-Os",
+  "customBuildProperties": "",
+  "fqbn": "esp32:esp32:um_feathers3:UploadSpeed=921600,USBMode=default,CDCOnBoot=cdc,MSCOnBoot=default,DFUOnBoot=default,UploadMode=cdc,CPUFreq=240,FlashMode=qio,PartitionScheme=default_16MB,DebugLevel=none,PSRAM=enabled,LoopCore=1,EventsCore=1,EraseFlash=none",
+  "hardwareFolders": "c:\\Users\\nicol\\AppData\\Local\\Arduino15\\packages",
+  "otherLibrariesFolders": "c:\\Users\\nicol\\Documents\\Arduino\\libraries",
+  "sketchLocation": "C:\\Users\\nicol\\Desktop\\Programme\\Pad-Avan Force\\FeatherS3 scripts\\Arduino version\\padavan_fs3"
+}

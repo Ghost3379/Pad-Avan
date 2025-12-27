@@ -256,5 +256,3 @@ public:
 };
 
 #endif // KEYBOARD_LAYOUT_WIN_CH_H
-
-

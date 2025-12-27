@@ -5,12 +5,12 @@ This folder contains compiled firmware binaries (.bin files) for distribution.
 ## How to Export Binaries from Arduino IDE
 
 1. Open the firmware file in Arduino IDE:
-   - For FeatherS3: `FeatherS3 scripts/Arduino version/padawan fs3/padawan_fs3.ino`
-   - For FeatherS3D: `FeatherS3 scripts/Arduino version/padavan_fs3d/padavan_fs3d.ino`
+   - For FeatherS3D (RECOMMENDED): `FeatherS3 scripts/Arduino version/padavan_fs3d/padavan_fs3d.ino`
+   - For FeatherS3 (Legacy): `FeatherS3 scripts/Arduino version/padavan_fs3/padavan_fs3.ino` (if available)
 
 2. Select the correct board:
-   - **Unexpected Maker FeatherS3** (for padawan_fs3)
-   - **Unexpected Maker FeatherS3D** (for padavan_fs3d)
+   - **Unexpected Maker FeatherS3D** (for padavan_fs3d - RECOMMENDED)
+   - **Unexpected Maker FeatherS3** (for padavan_fs3 - Legacy)
 
 3. Verify/Compile the sketch (Ctrl+R)
 
@@ -24,12 +24,12 @@ This folder contains compiled firmware binaries (.bin files) for distribution.
 
 ## File Naming Convention
 
-- `padawan_fs3-v{VERSION}.bin` - For FeatherS3 boards
-- `padavan_fs3d-v{VERSION}.bin` - For FeatherS3D boards
+- `padavan_fs3d-v{VERSION}.bin` - For FeatherS3D boards (RECOMMENDED)
+- `padavan_fs3-v{VERSION}.bin` - For FeatherS3 boards (Legacy)
 
 Example:
-- `padawan_fs3-v1.0.0.bin`
-- `padavan_fs3d-v1.0.2.bin`
+- `padavan_fs3d-v1.0.3.bin` (current version)
+- `padavan_fs3-v1.0.0.bin` (legacy)
 
 ## Including in GitHub Releases
 

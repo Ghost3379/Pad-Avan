@@ -4,7 +4,7 @@
 [Setup]
 AppId={{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}}
 AppName=Pad-Avan Force
-AppVersion=1.1
+AppVersion=1.3
 AppPublisher=Wayne Tech Enterprises
 AppPublisherURL=https://github.com/Ghost3379/Pad-Avan
 ; Install to user's AppData\Local\Programs by default (no admin needed)
@@ -12,10 +12,15 @@ AppPublisherURL=https://github.com/Ghost3379/Pad-Avan
 DefaultDirName={code:GetInstallDir}
 DefaultGroupName=Pad-Avan Force
 OutputDir=installer
-OutputBaseFilename=PadAvanForce_x64_v1.1-Setup
+OutputBaseFilename=PadAvanForce_x64_v1.3-Setup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
+; Wizard images - custom logo on installation pages
+; Large image on left side (164x314 pixels recommended)
+WizardImageFile=Pad-Avan Force\Assets\wayne_tech_logo_L.bmp
+; Small image on top right (55x55 pixels recommended)
+WizardSmallImageFile=Pad-Avan Force\Assets\wayne_tech_logo_S.bmp
 LicenseFile=
 InfoBeforeFile=
 InfoAfterFile=
@@ -29,7 +34,7 @@ PrivilegesRequiredOverridesAllowed=commandline
 AllowNoIcons=yes
 DisableProgramGroupPage=no
 DisableReadyPage=no
-VersionInfoVersion=1.1.0.0
+VersionInfoVersion=1.3.0.0
 VersionInfoCompany=Wayne Tech Enterprises
 VersionInfoDescription=Pad-Avan Force - Macro Pad Configuration Tool
 VersionInfoCopyright=Copyright (C) 2025
@@ -114,13 +119,31 @@ begin
     begin
       // Not running as admin - restart with elevation
       if MsgBox('Installing for all users requires administrator rights.' + #13#10#13#10 +
-                'The installer will now restart and request administrator privileges.',
+                'The installer will now restart and request administrator privileges.' + #13#10#13#10 +
+                'Do you want to continue?',
                 mbConfirmation, MB_YESNO) = IDYES then
       begin
-        // Restart installer with /ALLUSERS flag and request elevation
-        ShellExec('runas', ExpandConstant('{srcexe}'), '/ALLUSERS', '', SW_SHOW, ewWaitUntilTerminated, ErrorCode);
-        Result := False; // Cancel this instance
-        WizardForm.Close;
+        // Restart installer with /ALLUSERS flag and request elevation via UAC
+        // ShellExec('runas') will show the UAC prompt to the user
+        if ShellExec('runas', ExpandConstant('{srcexe}'), '/ALLUSERS', '', SW_SHOW, ewWaitUntilTerminated, ErrorCode) then
+        begin
+          Result := False; // Cancel this instance
+          WizardForm.Close;
+        end
+        else
+        begin
+          // If ShellExec failed, show error and go back to selection
+          // Error code 1223 = ERROR_CANCELLED (user cancelled UAC prompt)
+          if ErrorCode = 1223 then
+            MsgBox('Administrator privileges were not granted. The installation will continue for the current user only.' + #13#10#13#10 +
+                   'If you want to install for all users, please run the installer as administrator manually.',
+                   mbInformation, MB_OK)
+          else
+            MsgBox('Failed to restart installer with administrator rights. Error code: ' + IntToStr(ErrorCode) + #13#10#13#10 +
+                   'Please run the installer as administrator manually, or choose "Install for current user only".',
+                   mbError, MB_OK);
+          Result := False; // Go back to selection
+        end;
       end
       else
       begin

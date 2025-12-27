@@ -7,7 +7,7 @@ A powerful, customizable macro pad with 6 buttons and 2 rotary encoders, featuri
 
 🌐 **Website**: [https://padawan-force.base44.app](https://padawan-force.base44.app)
 
-![Padawan](https://img.shields.io/badge/Version-1.0.0-blue)
+![Padawan](https://img.shields.io/badge/Version-1.0.3-blue)
 ![.NET](https://img.shields.io/badge/.NET-8.0-purple)
 ![Avalonia](https://img.shields.io/badge/Avalonia-11.0-green)
 ![Arduino](https://img.shields.io/badge/Arduino-ESP32--S3-orange)
@@ -17,8 +17,8 @@ A powerful, customizable macro pad with 6 buttons and 2 rotary encoders, featuri
 ### Hardware
 - **6 Programmable Buttons** - Assign any action, key combo, or special key
 - **2 Rotary Encoders** - Volume control, scrolling, or custom actions
-- **OLED Display** - Shows layer, battery status, or time
-- **SD SPI Storage Module** - 2GB storage module (not a physical SD card) for storing configurations
+- **OLED Display** (128x32) - Shows layer, battery status, or time
+- **SD SPI Storage Module** (2GB) - Integrated storage module (not a physical SD card) for storing configurations
 - **USB HID** - Works as a standard keyboard/consumer control device
 
 ### Desktop Application (PadAwan-Force)
@@ -35,14 +35,16 @@ A powerful, customizable macro pad with 6 buttons and 2 rotary encoders, featuri
 - **Unexpected Maker (UM) Feather S3** or **Feather S3D** (ESP32-S3)
 - 6x Tactile buttons
 - 2x Rotary encoders with push buttons
-- SSD1306 OLED display (128x64)
-- **SD SPI Storage Module** (2GB) - not a physical microSD card
+- SSD1306 OLED display (128x32)
+- **SD SPI Storage Module** (2GB) - Integrated storage module (not a physical microSD card)
 - USB-C cable
 
 **Note**: The Feather S3 uses a voltage divider for battery measurement, while the Feather S3D uses a MAX chip.
 
 ### Software
 - **Arduino IDE** (2.0+) with ESP32 board support
+  - Install ESP32 board package: **Tools > Board > Boards Manager > Search "esp32"**
+  - Select board: **Unexpected Maker FeatherS3** or **Unexpected Maker FeatherS3D**
 - **.NET 8.0 SDK** (for building the desktop app)
 - **Visual Studio 2022** or **JetBrains Rider** (recommended)
 
@@ -51,28 +53,31 @@ A powerful, customizable macro pad with 6 buttons and 2 rotary encoders, featuri
 ### 1. Hardware Setup
 
 1. Solder components according to the wiring diagram (TODO: Add diagram)
-2. The SD SPI Storage Module (2GB) is already integrated - no physical card needed
+2. The **SD SPI Storage Module (2GB)** is already integrated on the board - no physical SD card needed
 3. Connect via USB-C
 
 ### 2. Firmware Installation
 
 **Choose the correct firmware version:**
-- **Feather S3** (older): Uses voltage divider for battery measurement
-  - Use: `FeatherS3 scripts/Arduino version/padawan fs3/padawan_fs3.ino`
-- **Feather S3D** (newer): Uses MAX chip for battery measurement
-  - Use: `FeatherS3 scripts/Arduino version/padawan fs3d/padawan_fs3d.ino`
+- **Feather S3D** (recommended): Uses MAX chip for battery measurement
+  - Use: `FeatherS3 scripts/Arduino version/padavan_fs3d/padavan_fs3d.ino`
+- **Feather S3** (legacy): Uses voltage divider for battery measurement
+  - Use: `FeatherS3 scripts/Arduino version/padavan_fs3/padavan_fs3.ino` (if available)
 
 #### Option A: Build from Source
 1. Open the appropriate `.ino` file for your board in Arduino IDE
-2. Install required libraries:
-   - **TinyUSB** (for USB HID support)
+2. Install required libraries (via **Tools > Manage Libraries**):
    - **ArduinoJson** (v6.x recommended)
    - **Adafruit SSD1306** (for OLED display)
+   - **Adafruit GFX** (automatically installed with SSD1306)
+   - **RotaryEncoder** (by Matthias Hertel)
    - **SD** (ESP32 built-in)
    - **SPI** (ESP32 built-in)
    - **Wire** (ESP32 built-in)
+   - **USBHIDKeyboard**, **USBHIDMouse**, **USBHIDConsumerControl** (ESP32 built-in)
 3. Select board: **Unexpected Maker FeatherS3** or **Unexpected Maker FeatherS3D**
-4. Upload the sketch
+4. Select **Tools > USB Mode > Native USB**
+5. Upload the sketch
 
 #### Option B: Flash Pre-built Firmware (via Update System)
 1. Connect your Padawan device
@@ -144,7 +149,7 @@ Configure the OLED display to show:
 
 ```
 Padawan/
-├── PadAwan-Force/              # Desktop configuration software (Avalonia UI)
+├── Pad-Avan Force/              # Desktop configuration software (Avalonia UI)
 │   ├── Models/                 # Data models
 │   ├── ViewModels/             # MVVM view models
 │   ├── Views/                  # UI views (XAML)
@@ -152,11 +157,12 @@ Padawan/
 │
 └── FeatherS3 scripts/           # Padawan firmware
     ├── Arduino version/        # Current firmware (Arduino)
-    │   ├── padawan fs3/        # Feather S3 firmware (voltage divider)
-    │   │   └── padawan_fs3.ino
-    │   └── padawan fs3d/       # Feather S3D firmware (MAX chip)
-    │       ├── padawan_fs3d.ino
-    │       └── KeyboardLayoutWinCH.h
+    │   ├── padavan_fs3d/       # Feather S3D firmware (MAX chip) - RECOMMENDED
+    │   │   ├── padavan_fs3d.ino
+    │   │   ├── DisplayHandler.h
+    │   │   └── KeyboardLayoutWinCH.h
+    │   └── padavan_fs3/        # Feather S3 firmware (voltage divider) - Legacy
+    │       └── padavan_fs3.ino
     └── cpy/                    # Legacy CircuitPython version (deprecated)
 ```
 
@@ -165,8 +171,8 @@ Padawan/
 - **PadAwan-Force** = The desktop configuration software (Avalonia UI)
 
 **Firmware Versions:**
-- **padawan fs3**: For Unexpected Maker Feather S3 (uses voltage divider for battery measurement)
-- **padawan fs3d**: For Unexpected Maker Feather S3D (uses MAX chip for battery measurement)
+- **padavan_fs3d**: For Unexpected Maker Feather S3D (uses MAX chip for battery measurement) - **RECOMMENDED**
+- **padavan_fs3**: For Unexpected Maker Feather S3 (uses voltage divider for battery measurement) - Legacy
 - **CircuitPython (cpy)**: Legacy version, no longer supported (switched to Arduino for better performance and reliability)
 
 ## 📦 Creating Firmware Releases
@@ -175,8 +181,8 @@ When creating a new **Padawan** firmware release on GitHub:
 
 1. **Build the firmware** in Arduino IDE:
    - Open the appropriate firmware file:
-     - `FeatherS3 scripts/Arduino version/padawan fs3/padawan_fs3.ino` (for Feather S3)
-     - `FeatherS3 scripts/Arduino version/padawan fs3d/padawan_fs3d.ino` (for Feather S3D)
+     - `FeatherS3 scripts/Arduino version/padavan_fs3d/padavan_fs3d.ino` (for Feather S3D - RECOMMENDED)
+     - `FeatherS3 scripts/Arduino version/padavan_fs3/padavan_fs3.ino` (for Feather S3 - Legacy)
    - Sketch → Export compiled Binary
    - The `.bin` file will be created in the same folder as the `.ino` file
    - File name will be something like: `padawan_fs3d.ino.bin` or `padawan_fs3d.bin`
@@ -214,7 +220,7 @@ When creating a new **Padawan** firmware release on GitHub:
 The device communicates via USB Serial at 115200 baud:
 
 - `PING` → `PONG` (connection test)
-- `GET_VERSION` → `VERSION:1.0.0` (firmware version)
+- `GET_VERSION` → `VERSION:1.0.3` (firmware version)
 - `DOWNLOAD_CONFIG` → `CONFIG:{json}` (download configuration)
 - `GET_CURRENT_CONFIG` → `CURRENT_CONFIG:{json}` (get active config)
 - `UPLOAD_LAYER_CONFIG` → `READY_FOR_LAYER_CONFIG` (prepare for upload)
@@ -280,6 +286,10 @@ Configurations are stored as JSON:
 - [x] Layer management
 - [x] Configuration import/export
 - [x] Update system UI
+- [x] Display integration (OLED 128x32)
+- [x] Multi-file JSON config structure
+- [x] Improved connection stability
+- [ ] Button and knob action handlers (in progress)
 - [ ] GitHub API integration for updates
 - [ ] esptool integration for firmware flashing
 - [ ] Custom key combo builder improvements

@@ -59,8 +59,12 @@ namespace PadAwan_Force.Models
             return new SerialPort(portName, Baud, Parity.None, 8, StopBits.One)
             {
                 Handshake = Handshake.None,
-                DtrEnable = false,         // ESP32-S3 kann durch DTR resetten - deaktivieren
-                RtsEnable = false,         // ESP32-S3 kann durch RTS resetten - deaktivieren
+                // IMPORTANT:
+                // Many USB-CDC devices (including ESP32-S3 USB CDC) only start sending/receiving
+                // once the host asserts DTR/RTS. Arduino Serial Monitor typically does this.
+                // If we keep these disabled, we can open the port but never receive bytes (BytesToRead stays 0).
+                DtrEnable = true,
+                RtsEnable = true,
                 ReadTimeout = ReadToMs,
                 WriteTimeout = WriteToMs,
                 NewLine = Eol,
@@ -72,6 +76,7 @@ namespace PadAwan_Force.Models
         {
             // Schnell alle Ports holen
             var ports = SerialPort.GetPortNames().ToList();
+            System.Diagnostics.Debug.WriteLine($"GetCandidatePorts: Found ports: {(ports.Count == 0 ? "<none>" : string.Join(", ", ports))}");
             
 #if WINDOWS
             // Optional: Filter for ESP32/Adafruit VID:PID (303A:80D7)
@@ -99,13 +104,17 @@ namespace PadAwan_Force.Models
                 
                 if (filteredPorts.Any())
                 {
+                        System.Diagnostics.Debug.WriteLine($"GetCandidatePorts: VID/PID filter matched: {string.Join(", ", filteredPorts)}");
                         // ESP32-Ports zuerst testen (höhere Priorität)
                         return filteredPorts.Concat(ports.Except(filteredPorts)).ToList();
                 }
+                
+                System.Diagnostics.Debug.WriteLine("GetCandidatePorts: VID/PID filter matched no ports; falling back to all ports");
             }
-                catch (Exception)
+                catch (Exception ex)
             {
-                    // Stille Fehlerbehandlung - WMI kann langsam/fehlerhaft sein
+                    // WMI kann langsam/fehlerhaft sein -> fallback auf rohe Portliste
+                    System.Diagnostics.Debug.WriteLine($"GetCandidatePorts: WMI query failed, falling back to all ports. Error: {ex.Message}");
                 }
             }
 #endif
@@ -241,49 +250,105 @@ namespace PadAwan_Force.Models
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): Opening port...");
                 using var test = CreatePort(portName);
                 test.Open();
-                await Task.Delay(50);             // Reduziert von 100ms - sehr schnelle Verbindung
+                System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): Port opened, waiting 100ms...");
+                await Task.Delay(250);             // Mehr Zeit für USB-CDC + DTR/RTS LineState
                 test.DiscardInBuffer();
                 test.DiscardOutBuffer();
+                System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): Buffers cleared");
 
                 // PING schicken
+                System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): Sending PING...");
                 test.Write("PING\n");  // Explizit \n statt WriteLine für bessere Kontrolle
                 test.BaseStream.Flush();  // Explizit flushen
-                await Task.Delay(10);  // Reduziert von 20ms - sehr schnelle Antwort
+                System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): PING sent, waiting 100ms for response...");
+                await Task.Delay(150);  // Mehr Zeit für Antwort
                 
                 var started = DateTime.UtcNow;
-                // Reduzierter Timeout - PONG sollte innerhalb von 200ms kommen
-                int timeoutMs = 200;
+                // Timeout erhöht - PONG sollte innerhalb von 1000ms kommen
+                int timeoutMs = 1000;
+                bool pongReceived = false;
+                int readAttempts = 0;
+                int pingsResent = 0;
 
-                while ((DateTime.UtcNow - started).TotalMilliseconds < timeoutMs)
+                System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): Starting to read responses (timeout: {timeoutMs}ms)...");
+                
+                while ((DateTime.UtcNow - started).TotalMilliseconds < timeoutMs && !pongReceived)
                 {
+                    readAttempts++;
+                    int bytesAvailable = test.BytesToRead;
+                    
                     // Prüfe ob Daten verfügbar sind, bevor ReadLine() aufgerufen wird
-                    if (test.BytesToRead > 0)
+                    if (bytesAvailable > 0)
                 {
+                        System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): Bytes available: {bytesAvailable} (attempt {readAttempts})");
                     try
                     {
                         var line = test.ReadLine()?.Trim();
                         if (!string.IsNullOrEmpty(line))
                         {
+                            System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): Received line: '{line}'");
+                            
+                            // Check for PONG (main response)
                             if (line.Equals("PONG", StringComparison.OrdinalIgnoreCase))
                                 {
-                                    System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): PONG received - port is valid!");
+                                    System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): ✓ PONG received - port is valid!");
+                                pongReceived = true;
                                 return true;
                                 }
+                            // Ignore READY (sent after first PONG handshake)
+                            if (line.Equals("READY", StringComparison.OrdinalIgnoreCase))
+                            {
+                                System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): READY received (ignoring, waiting for PONG)");
+                                // Continue reading to find PONG
+                                continue;
+                            }
                             // optional: Bootmeldungen überspringen und weiter lesen
+                            System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): Unknown response: '{line}'");
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): Empty line received");
                         }
                     }
-                    catch (TimeoutException)
+                    catch (TimeoutException ex)
                     {
+                        System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): ReadLine timeout: {ex.Message}");
                         // weiter warten bis Gesamttimeout
                     }
-                        catch
+                        catch (Exception ex)
                         {
-                            // Stille Fehlerbehandlung - kein Debug-Output für Performance
+                            System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): Read error: {ex.Message}");
                         }
                     }
-                    await Task.Delay(2);  // Reduziert von 5ms - sehr schnelle Reaktion
+                    else if (readAttempts % 10 == 0)
+                    {
+                        // Log every 10th attempt if no data available
+                        System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): No data available (attempt {readAttempts}, elapsed: {(DateTime.UtcNow - started).TotalMilliseconds:F0}ms)");
+                        // Some devices only respond after a second PING once line state settles
+                        if (pingsResent < 2)
+                        {
+                            pingsResent++;
+                            System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): Re-sending PING (attempt {pingsResent})...");
+                            try
+                            {
+                                test.Write("PING\n");
+                                test.BaseStream.Flush();
+                            }
+                            catch (Exception ex)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): Re-send PING failed: {ex.Message}");
+                            }
+                        }
+                    }
+                    await Task.Delay(20);  // Etwas länger warten zwischen Versuchen
+                }
+                
+                if (!pongReceived)
+                {
+                    System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): ✗ Timeout after {readAttempts} attempts - PONG not received (BytesToRead: {test.BytesToRead})");
                 }
 
                 // Kein Debug-Output bei Timeout für Performance
@@ -291,7 +356,8 @@ namespace PadAwan_Force.Models
             }
             catch (UnauthorizedAccessException)
             {
-                // Port von anderem Prozess belegt - stille Behandlung
+                // Port von anderem Prozess belegt (z.B. Arduino Serial Monitor) - nicht still schlucken, sonst wirkt es wie "kein Gerät vorhanden"
+                System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): ✗ Port is busy/in use (UnauthorizedAccessException). Close Arduino Serial Monitor / PuTTY / andere Apps, die diesen COM Port geöffnet haben.");
                 return false;
             }
             catch
@@ -494,10 +560,12 @@ namespace PadAwan_Force.Models
                 sp.DiscardInBuffer();
                 sp.Write("PING\n");  // Explizit \n statt WriteLine für bessere Kontrolle
                 sp.BaseStream.Flush();  // Explizit flushen
-                await Task.Delay(10);  // Reduziert von 20ms - sehr schnelle Antwort
+                await Task.Delay(50);  // Mehr Zeit für Antwort
 
-                var deadline = DateTime.UtcNow.AddMilliseconds(300);  // Reduziert von 1000ms - PONG sollte sofort kommen
-                while (DateTime.UtcNow < deadline)
+                var deadline = DateTime.UtcNow.AddMilliseconds(500);  // Timeout erhöht
+                bool pongReceived = false;
+                
+                while (DateTime.UtcNow < deadline && !pongReceived)
                 {
                     // Prüfe ob Daten verfügbar sind, bevor ReadLine() aufgerufen wird
                     if (sp.BytesToRead > 0)
@@ -507,9 +575,23 @@ namespace PadAwan_Force.Models
                         var line = sp.ReadLine()?.Trim();
                         if (!string.IsNullOrEmpty(line))
                         {
-                            bool ok = line.Equals("PONG", StringComparison.OrdinalIgnoreCase);
-                            System.Diagnostics.Debug.WriteLine($"Ping response: '{line}' -> {ok}");
-                            if (ok) return true;
+                            System.Diagnostics.Debug.WriteLine($"PingAsync: Received '{line}'");
+                            
+                            // Check for PONG (main response)
+                            if (line.Equals("PONG", StringComparison.OrdinalIgnoreCase))
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Ping response: PONG received");
+                                pongReceived = true;
+                                return true;
+                            }
+                            // Ignore READY (sent after first PONG handshake)
+                            if (line.Equals("READY", StringComparison.OrdinalIgnoreCase))
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Ping response: READY received (ignoring, waiting for PONG)");
+                                // Continue reading to find PONG
+                                continue;
+                            }
+                            System.Diagnostics.Debug.WriteLine($"Ping response: '{line}' (not PONG or READY)");
                         }
                     }
                         catch (TimeoutException) 
@@ -521,7 +603,12 @@ namespace PadAwan_Force.Models
                             System.Diagnostics.Debug.WriteLine($"PingAsync read error: {ex.Message}");
                         }
                     }
-                    await Task.Delay(5);  // Reduziert von 10ms - schnellere Reaktion
+                    await Task.Delay(10);  // Etwas länger warten
+                }
+                
+                if (!pongReceived)
+                {
+                    System.Diagnostics.Debug.WriteLine("PingAsync: Timeout - PONG not received");
                 }
                 System.Diagnostics.Debug.WriteLine("Ping: timeout");
                 return false;
@@ -979,3 +1066,5 @@ namespace PadAwan_Force.Models
         }
     }
 }
+
+
