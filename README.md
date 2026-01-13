@@ -59,17 +59,17 @@ A powerful, customizable macro pad with 6 buttons and 2 rotary encoders, featuri
 ### 2. Firmware Installation
 
 **Choose the correct firmware version:**
-<<<<<<< HEAD
+
 - **Feather S3D** (recommended): Uses MAX chip for battery measurement
   - Use: `FeatherS3 scripts/Arduino version/padavan_fs3d/padavan_fs3d.ino`
 - **Feather S3** (legacy): Uses voltage divider for battery measurement
   - Use: `FeatherS3 scripts/Arduino version/padavan_fs3/padavan_fs3.ino` (if available)
-=======
+
 - **Feather S3** (older): Uses voltage divider for battery measurement
   - Use: `FeatherS3 scripts/Arduino version/Pad-Avan fs3/Pad-Avan_fs3.ino`
 - **Feather S3D** (newer): Uses MAX chip for battery measurement
   - Use: `FeatherS3 scripts/Arduino version/Pad-Avan fs3d/Pad-Avan_fs3d.ino`
->>>>>>> 1907bc308604ee760159c1007ff690f4b946aa28
+
 
 #### Option A: Build from Source
 1. Open the appropriate `.ino` file for your board in Arduino IDE
@@ -78,6 +78,7 @@ A powerful, customizable macro pad with 6 buttons and 2 rotary encoders, featuri
    - **Adafruit SSD1306** (for OLED display)
    - **Adafruit GFX** (automatically installed with SSD1306)
    - **RotaryEncoder** (by Matthias Hertel)
+   - **UMS3/UMS3D Helper** (by unexpected maker, helper lib for Feather board)
    - **SD** (ESP32 built-in)
    - **SPI** (ESP32 built-in)
    - **Wire** (ESP32 built-in)
@@ -161,7 +162,6 @@ Padawan/
 =======
 Pad-Avan/
 ├── Pad-Avan-Force/              # Desktop configuration software (Avalonia UI)
->>>>>>> 1907bc308604ee760159c1007ff690f4b946aa28
 │   ├── Models/                 # Data models
 │   ├── ViewModels/             # MVVM view models
 │   ├── Views/                  # UI views (XAML)
@@ -169,20 +169,17 @@ Pad-Avan/
 │
 └── FeatherS3 scripts/           # Pad-Avan firmware
     ├── Arduino version/        # Current firmware (Arduino)
-<<<<<<< HEAD
     │   ├── padavan_fs3d/       # Feather S3D firmware (MAX chip) - RECOMMENDED
     │   │   ├── padavan_fs3d.ino
     │   │   ├── DisplayHandler.h
     │   │   └── KeyboardLayoutWinCH.h
     │   └── padavan_fs3/        # Feather S3 firmware (voltage divider) - Legacy
     │       └── padavan_fs3.ino
-=======
     │   ├── Pad-Avan fs3/        # Feather S3 firmware (voltage divider)
     │   │   └── Pad-Avan_fs3.ino
     │   └── Pad-Avan fs3d/       # Feather S3D firmware (MAX chip)
     │       ├── Pad-Avan_fs3d.ino
     │       └── KeyboardLayoutWinCH.h
->>>>>>> 1907bc308604ee760159c1007ff690f4b946aa28
     └── cpy/                    # Legacy CircuitPython version (deprecated)
 ```
 
