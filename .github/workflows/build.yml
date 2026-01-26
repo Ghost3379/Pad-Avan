@@ -1,0 +1,45 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-desktop:
+    name: Build Desktop Application
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '8.0.x'
+    
+    - name: Restore dependencies
+      run: dotnet restore PadAwan-Force/PadAwan-Force.csproj
+    
+    - name: Build
+      run: dotnet build PadAwan-Force/PadAwan-Force.csproj --configuration Release --no-restore
+    
+    - name: Publish
+      run: dotnet publish PadAwan-Force/PadAwan-Force.csproj --configuration Release --output ./publish
+
+  check-arduino:
+    name: Check Arduino Code
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Check Arduino files exist
+      run: |
+        if [ ! -f "FeatherS3 scripts/Arduino version/padawan fs3d/padawan_fs3d/padawan_fs3d.ino" ]; then
+          echo "Arduino file not found!"
+          exit 1
+        fi
+        echo "Arduino file found ✓"
+

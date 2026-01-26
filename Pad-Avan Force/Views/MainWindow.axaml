@@ -1,0 +1,426 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PadAwan_Force.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="700"
+        x:Class="PadAwan_Force.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/Pad-Avan Force logo v2.ico"
+        Title="Pad-Avan Force"
+        Background="Black"
+        Width="1000" Height="700"
+        CanResize="False"
+		WindowStartupLocation="CenterOwner"
+		>
+	
+  <Design.DataContext>
+    <vm:MainWindowViewModel/>
+  </Design.DataContext>
+
+  <Grid Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="3*"/>
+      <ColumnDefinition Width="2*"/>
+    </Grid.ColumnDefinitions>
+    
+    <!-- Top horizontal rectangle -->
+    <Rectangle Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+               Fill="#1A1A1A" 
+               Height="70" 
+               VerticalAlignment="Top" 
+               Margin="-20,-20,-20,0"/>
+    
+    <!-- Bottom horizontal rectangle -->
+    <Rectangle Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+               Fill="#1A1A1A" 
+               Height="60" 
+               VerticalAlignment="Bottom" 
+               Margin="-20,0,-20,-20"/>
+    
+    <!-- Credits -->
+    <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+               Text="Developed by Lars Eggimann &amp; Nicolas Payern with Cursor • Powered by Avalonia &amp; Arduino"
+               FontSize="10"
+               Foreground="#707070"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Bottom"
+               Margin="0,0,0,8"/>
+    
+    <!-- Application Title -->
+    <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+               Text="Pad-Avan Force" 
+               FontSize="32" 
+               FontWeight="Bold" 
+               Foreground="#00FFFF"
+               HorizontalAlignment="Left" 
+               Margin="0,-5,0,30"/>
+    
+    <!-- Pad Layout Section -->
+    <Border Grid.Row="1" Grid.Column="0" 
+            Background="#2A2A2A" 
+            CornerRadius="10" 
+            Padding="15"
+            Margin="0,6,20,60">
+      <StackPanel>
+        <!-- Pad Layout Title -->
+        <TextBlock Text="Pad Layout"
+                   FontSize="18"
+                   Foreground="White"
+                   FontWeight="Bold"
+                   HorizontalAlignment="Center"
+                   Margin="0,0,0,12"/>
+        
+        <!-- Display Rectangle -->
+        <Border Background="#404040" 
+                CornerRadius="5" 
+                Padding="60,10,60,10"
+                Margin="-140,0,0,10"
+                HorizontalAlignment="Center"
+                Width="240">
+          <TextBlock Text="{Binding PadDisplayText}"
+                     FontSize="28"
+                     Foreground="White"
+                     FontWeight="Bold"
+                     HorizontalAlignment="Center"
+                     TextAlignment="Center"/>
+        </Border>
+        
+        <!-- Button Container -->
+        <Grid HorizontalAlignment="Center">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+          </Grid.RowDefinitions>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+
+          <!-- 2x3 Button Matrix -->
+          <Button x:Name="Button1" Grid.Row="0" Grid.Column="0" Margin="10" Width="100" Height="100" Background="#404040" Foreground="{Binding Button1Color}" FontSize="18" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="#707070" BorderThickness="3" Click="Button1_Click" Content="{Binding Button1Text}"/>
+          <Button x:Name="Button2" Grid.Row="0" Grid.Column="1" Margin="10" Width="100" Height="100" Background="#404040" Foreground="{Binding Button2Color}" FontSize="18" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="#707070" BorderThickness="3" Click="Button2_Click" Content="{Binding Button2Text}"/>
+          
+          <Button x:Name="Button3" Grid.Row="1" Grid.Column="0" Margin="10" Width="100" Height="100" Background="#404040" Foreground="{Binding Button3Color}" FontSize="18" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="#707070" BorderThickness="3" Click="Button3_Click" Content="{Binding Button3Text}"/>
+          <Button x:Name="Button4" Grid.Row="1" Grid.Column="1" Margin="10" Width="100" Height="100" Background="#404040" Foreground="{Binding Button4Color}" FontSize="18" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="#707070" BorderThickness="3" Click="Button4_Click" Content="{Binding Button4Text}"/>
+
+          <Button x:Name="Button5" Grid.Row="2" Grid.Column="0" Margin="10" Width="100" Height="100" Background="#404040" Foreground="{Binding Button5Color}" FontSize="18" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="#707070" BorderThickness="3" Click="Button5_Click" Content="{Binding Button5Text}"/>
+          <Button x:Name="Button6" Grid.Row="2" Grid.Column="1" Margin="10" Width="100" Height="100" Background="#404040" Foreground="{Binding Button6Color}" FontSize="18" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="#707070" BorderThickness="3" Click="Button6_Click" Content="{Binding Button6Text}"/>
+
+          <!-- Round Knobs - Right side of button matrix -->
+          <StackPanel Grid.Row="0" Grid.Column="2" 
+                      Grid.RowSpan="3"
+                      HorizontalAlignment="Center" 
+                      VerticalAlignment="Center" 
+                      Margin="20,0,0,0" 
+                      Spacing="45">
+            
+            <!-- Top Round Knob -->
+            <Button Width="120" 
+                    Height="120" 
+                    Background="#404040" 
+                    Foreground="White" 
+                    FontSize="24" 
+                    FontWeight="Bold" 
+                    CornerRadius="60" 
+                    HorizontalAlignment="Center" 
+                    VerticalAlignment="Center"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    BorderBrush="#707070"
+                    BorderThickness="3"
+                    Click="KnobA_Click"
+                    Content="{Binding KnobAFunction}"/>
+            
+            <!-- Bottom Round Knob -->
+            <Button Width="120" 
+                    Height="120" 
+                    Background="#404040" 
+                    Foreground="White" 
+                    FontSize="24" 
+                    FontWeight="Bold" 
+                    CornerRadius="60" 
+                    HorizontalAlignment="Center" 
+                    VerticalAlignment="Center"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    BorderBrush="#707070"
+                    BorderThickness="3"
+                    Click="KnobB_Click"
+                    Content="{Binding KnobBFunction}"/>
+            
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <!-- Right Section - Device Info & Layer Settings -->
+    <StackPanel Grid.Row="1" Grid.Column="1" Spacing="20" Margin="10,6,0,0">
+      
+      <!-- Device Info Section -->
+      <Border Background="#2A2A2A" 
+              CornerRadius="10" 
+              Padding="15">
+        <StackPanel>
+          <TextBlock Text="Device Infos" 
+                     FontSize="18" 
+                     FontWeight="Bold" 
+                     Foreground="White" 
+                     HorizontalAlignment="Center" 
+                     Margin="0,0,0,12"/>
+          
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
+            <TextBlock Text="Status:" 
+                       FontSize="14" 
+                       Foreground="White" 
+                       VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding Status}" 
+                     FontSize="14" 
+                     Foreground="{Binding Color}" 
+                     VerticalAlignment="Center" 
+                     Margin="5,0,0,0"/>
+		  
+          </StackPanel>
+
+          <TextBlock Text="{Binding ComPort}" 
+                     FontSize="12" 
+                     Foreground="White" 
+                     HorizontalAlignment="Center" 
+                     Margin="0,2,0,0"/>
+
+		    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
+			    <TextBlock Text="Battery:"
+						    FontSize="14"
+						    Foreground="White"
+						    VerticalAlignment="Center"/>
+			    <TextBlock Text="{Binding Battery, StringFormat={}{0}%}"
+						    FontSize="14"
+						    Foreground="LimeGreen"
+						    VerticalAlignment="Center"
+						    Margin="5,0,0,0"/>
+		    </StackPanel>
+
+          <!-- Configuration Transfer Buttons -->
+			<StackPanel Orientation="Horizontal"
+						HorizontalAlignment="Center"
+                        Margin="0,6,0,0"
+						Spacing="10">
+
+				<Button Content="Flash Pad"
+						Width="90"
+						Height="30"
+						FontSize="12"
+						Background="#b0b0"
+						Foreground="White"
+						BorderBrush="LimeGreen"
+						BorderThickness="2"
+						CornerRadius="3"
+						Command="{Binding SendConfigurationToDeviceCommand}"
+						HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"/>
+
+				<Button Content="Config"
+						Width="90"
+						Height="30"
+						FontSize="12"
+						Background="#404040"
+						Foreground="White"
+						BorderBrush="#707070"
+						BorderThickness="2"
+						CornerRadius="3"
+						HorizontalContentAlignment="Center"
+						VerticalContentAlignment="Center">
+					<Button.Flyout>
+						<MenuFlyout>
+							<MenuItem Header="Upload Config from Zip"
+									  Command="{Binding UploadConfigFromFileCommand}"/>
+							<MenuItem Header="Download Config"
+									  Command="{Binding DownloadConfigurationCommand}"/>
+							<MenuItem Header="Read Config"
+									  Command="{Binding ReadConfigCommand}"/>
+						</MenuFlyout>
+					</Button.Flyout>
+				</Button>
+
+				<Button Content="Update"
+						Width="90"
+						Height="30"
+						FontSize="12"
+						Background="#404040"
+						Foreground="White"
+						BorderBrush="#707070"
+						BorderThickness="2"
+						CornerRadius="3"
+						Command="{Binding OpenUpdateWindowCommand}"
+						HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"/>
+			</StackPanel>
+
+        </StackPanel>
+      </Border>
+
+      <!-- Layer Settings Section -->
+      <Border Background="#2A2A2A" 
+              CornerRadius="10" 
+              Padding="12">
+        <StackPanel>
+          <TextBlock Text="Layer Settings" 
+                     FontSize="18" 
+                     FontWeight="Bold" 
+                     Foreground="White" 
+                     HorizontalAlignment="Center" 
+                     Margin="0,0,0,15"/>
+          
+          <TextBlock Text="Current Layer:" 
+                     FontSize="14" 
+                     Foreground="White" 
+                     HorizontalAlignment="Center" 
+                     Margin="0,0,0,8"/>
+          
+          <!-- Layer Dropdown -->
+          <ComboBox HorizontalAlignment="Center" 
+                    Width="150" 
+                    Height="35" 
+                    FontSize="14" 
+                    Background="#404040" 
+                    Foreground="White" 
+                    BorderBrush="#707070" 
+                    BorderThickness="2" 
+                    CornerRadius="5"
+                    Margin="0,0,0,15"
+                    SelectedIndex="{Binding SelectedLayerIndex, Mode=TwoWay}"
+                    ItemsSource="{Binding Layers}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding Name}"/>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          
+          <!-- Layer Management Buttons -->
+          <StackPanel Orientation="Horizontal" 
+                      HorizontalAlignment="Center" 
+                      Spacing="10"
+                      Margin="0,0,0,10">
+            
+            <!-- Add Layer Button -->
+            <Button Content="+ Add" 
+                    Width="90" 
+                    Height="30" 
+                    FontSize="12" 
+                    FontWeight="Bold" 
+                    Background="#404040" 
+                    Foreground="White" 
+                    BorderBrush="#707070" 
+                    BorderThickness="2" 
+                    CornerRadius="3" 
+                    HorizontalAlignment="Center"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    Command="{Binding AddLayerCommand}"/>
+           
+            
+            <!-- Delete Layer Button -->
+            <Button Content="Delete" 
+                    Width="90" 
+                    Height="30" 
+                    FontSize="12" 
+                    FontWeight="Bold" 
+                    Background="Red" 
+                    Foreground="White" 
+                    BorderBrush="DarkRed" 
+                    BorderThickness="2" 
+                    CornerRadius="3" 
+                    HorizontalAlignment="Center"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    Command="{Binding DeleteLayerCommand}"/>
+
+            <!-- Settings Button -->
+            <Button Content="Settings" 
+                    Width="90" 
+                    Height="30" 
+                    FontSize="12" 
+                    FontWeight="Bold" 
+                    Background="#404040" 
+                    Foreground="White" 
+                    BorderBrush="#707070" 
+                    BorderThickness="2" 
+                    CornerRadius="3" 
+                    HorizontalAlignment="Center"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    Command="{Binding OpenLayerSettingsCommand}"/>
+            
+          </StackPanel>
+          
+        </StackPanel>
+      </Border>
+
+      <!-- Display Settings Section -->
+      <Border Background="#2A2A2A" 
+              CornerRadius="10" 
+              Padding="12">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="600">
+          <StackPanel>
+            <TextBlock Text="Display Settings" 
+                       FontSize="18" 
+                       FontWeight="Bold" 
+                       Foreground="White" 
+                       HorizontalAlignment="Center" 
+                       Margin="0,0,0,10"/>
+            
+            <!-- Display Toggle -->
+            <StackPanel Orientation="Horizontal" 
+                        HorizontalAlignment="Center" 
+                        Spacing="10"
+                        Margin="0,0,0,15">
+              
+              <TextBlock Text="Display On:" 
+                         FontSize="14" 
+                         Foreground="White" 
+                         VerticalAlignment="Center"/>
+              
+              <CheckBox IsChecked="{Binding DisplayEnabled}" 
+                        VerticalAlignment="Center"/>
+              
+            </StackPanel>
+            
+            <TextBlock Text="Display Function:" 
+                       FontSize="14" 
+                       Foreground="White" 
+                       HorizontalAlignment="Center" 
+                       Margin="0,0,0,8"/>
+            
+            <!-- Display Function Dropdown -->
+            <ComboBox HorizontalAlignment="Center" 
+                      Width="150" 
+                      Height="35" 
+                      FontSize="14" 
+                      Background="#404040" 
+                      Foreground="White" 
+                      BorderBrush="#707070" 
+                      BorderThickness="2" 
+                      CornerRadius="5"
+                      SelectedIndex="{Binding DisplayModeIndex}"
+                      SelectionChanged="DisplayModeComboBox_SelectionChanged">
+              <ComboBoxItem Content="Layer"/>
+              <ComboBoxItem Content="Battery"/>
+              <ComboBoxItem Content="Time"/>
+            </ComboBox>
+            
+            
+            
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </StackPanel>
+
+  </Grid>
+</Window>

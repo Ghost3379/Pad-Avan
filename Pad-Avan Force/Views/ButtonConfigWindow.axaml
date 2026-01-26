@@ -1,0 +1,353 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="PadAwan_Force.Views.ButtonConfigWindow"
+        Title="Key Configuration"
+        Width="450" Height="400"
+        CanResize="False"
+        Background="Black"
+		Icon="/Assets/Pad-Avan Force logo v2.ico"
+        WindowStartupLocation="CenterOwner">
+  
+  <Grid Margin="30">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    
+    <!-- Top horizontal rectangle -->
+    <Rectangle Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+               Fill="#1A1A1A" 
+               Height="50" 
+               VerticalAlignment="Top" 
+               Margin="-30,-30,-30,0"/>
+    
+    <!-- Bottom horizontal rectangle -->
+    <Rectangle Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+               Fill="#1A1A1A" 
+               Height="50" 
+               VerticalAlignment="Bottom" 
+               Margin="-30,0,-30,-30"/>
+    
+    <!-- Title -->
+    <TextBlock Grid.Row="0" 
+               Text="Configuration:" 
+               FontSize="32" 
+               FontWeight="Bold" 
+               Foreground="#00FFFF"
+               HorizontalAlignment="Left" 
+               Margin="-20,-25,0,30"/>
+
+	  <!-- Button Refernce -->  
+	<TextBlock x:Name="ButtonNumberText"
+		Text="Button 1"
+		FontSize="32"
+		FontWeight="Bold"
+		Foreground="#00FFFF"
+		HorizontalAlignment="Right"
+		Margin="-20,-25,0,30"/>
+    
+    <!-- Configuration Content -->
+    <StackPanel Grid.Row="1" Spacing="20">
+      
+      <!-- Action Type -->
+      <StackPanel HorizontalAlignment="Center">
+        <TextBlock Text="Action Type:" 
+                   FontSize="16" 
+                   FontWeight="Bold"
+                   Foreground="White" 
+                   Margin="0,0,0,8"/>
+        <ComboBox x:Name="ActionTypeComboBox"
+                  Width="250" 
+                  Height="40" 
+                  FontSize="16" 
+                  Background="#404040" 
+                  Foreground="White" 
+                  BorderBrush="#707070" 
+                  BorderThickness="2" 
+                  CornerRadius="5"
+                  SelectedIndex="0"
+                  SelectionChanged="ActionTypeComboBox_SelectionChanged">
+          <ComboBoxItem Content="Type Text"/>
+          <ComboBoxItem Content="Special Key"/>
+		  <ComboBoxItem Content="Key combo"/>
+          <ComboBoxItem Content="Layer Switch"/>
+          <ComboBoxItem Content="None"/>
+        </ComboBox>
+      </StackPanel>
+      
+      <!-- Key/Value Input (for Key Press) -->
+      <StackPanel x:Name="KeyValuePanel" HorizontalAlignment="Center">
+        <TextBlock Text="Text:" 
+                   FontSize="16" 
+                   FontWeight="Bold"
+                   Foreground="White" 
+                   Margin="0,0,0,8"/>
+        <TextBox x:Name="KeyValueTextBox"
+                 Width="250" 
+                 Height="40" 
+                 FontSize="16" 
+                 Background="#404040" 
+                 Foreground="White" 
+                 BorderBrush="#707070" 
+                 BorderThickness="2" 
+                 CornerRadius="5"
+                 Watermark="Enter text..."/>
+        <StackPanel x:Name="HoldToRepeatPanel"
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Center" 
+                    Margin="0,10,0,0"
+                    Spacing="8">
+          <CheckBox x:Name="HoldToRepeatCheckBox"
+                    IsChecked="False"
+                    VerticalAlignment="Center"
+                    Foreground="White"
+                    Background="Transparent"/>
+          <TextBlock Text="Hold to Repeat" 
+                     FontSize="14" 
+                     Foreground="White" 
+                     VerticalAlignment="Center"/>
+        </StackPanel>
+      </StackPanel>
+
+      <!-- Special Key Panel (for Special Key) -->
+      <StackPanel x:Name="SpecialKeyPanel" HorizontalAlignment="Center" IsVisible="False">
+        <TextBlock Text="Special Key:"
+                   HorizontalAlignment="Left"
+                   FontSize="16" 
+                   FontWeight="Bold"
+                   Foreground="White" 
+                   Margin="0,0,0,8"/>
+        
+        <ComboBox x:Name="SpecialKeyComboBox" 
+                  Width="250" 
+                  Height="40" 
+                  FontSize="16" 
+                  Background="#404040" 
+                  Foreground="White" 
+                  BorderBrush="#707070" 
+                  BorderThickness="2" 
+                  CornerRadius="5"
+                  SelectedIndex="0">
+          <ComboBoxItem Content="Esc"/>
+          <ComboBoxItem Content="Enter"/>
+          <ComboBoxItem Content="Tab"/>
+          <ComboBoxItem Content="Space"/>
+          <ComboBoxItem Content="Backspace"/>
+          <ComboBoxItem Content="Delete"/>
+          <ComboBoxItem Content="Home"/>
+          <ComboBoxItem Content="End"/>
+          <ComboBoxItem Content="Page Up"/>
+          <ComboBoxItem Content="Page Down"/>
+          <ComboBoxItem Content="Arrow Up"/>
+          <ComboBoxItem Content="Arrow Down"/>
+          <ComboBoxItem Content="Arrow Left"/>
+          <ComboBoxItem Content="Arrow Right"/>
+          <ComboBoxItem Content="F1"/>
+          <ComboBoxItem Content="F2"/>
+          <ComboBoxItem Content="F3"/>
+          <ComboBoxItem Content="F4"/>
+          <ComboBoxItem Content="F5"/>
+          <ComboBoxItem Content="F6"/>
+          <ComboBoxItem Content="F7"/>
+          <ComboBoxItem Content="F8"/>
+          <ComboBoxItem Content="F9"/>
+          <ComboBoxItem Content="F10"/>
+          <ComboBoxItem Content="F11"/>
+          <ComboBoxItem Content="F12"/>
+          <ComboBoxItem Content="Windows Key"/>
+          <ComboBoxItem Content="Menu Key"/>
+          <ComboBoxItem Content="Ctrl"/>
+          <ComboBoxItem Content="Shift"/>
+          <ComboBoxItem Content="Alt"/>
+          <ComboBoxItem Content="Alt Gr"/>
+          <ComboBoxItem Content="Play/Pause"/>
+          <ComboBoxItem Content="Next Track"/>
+          <ComboBoxItem Content="Previous Track"/>
+          <ComboBoxItem Content="Stop"/>
+          <ComboBoxItem Content="Volume Up"/>
+          <ComboBoxItem Content="Volume Down"/>
+          <ComboBoxItem Content="Mute"/>
+          <ComboBoxItem Content="Left Mouse"/>
+          <ComboBoxItem Content="Right Mouse"/>
+          <ComboBoxItem Content="Middle Mouse"/>
+        </ComboBox>
+        <StackPanel x:Name="SpecialKeyHoldToRepeatPanel"
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Center" 
+                    Margin="0,10,0,0"
+                    Spacing="8">
+          <CheckBox x:Name="SpecialKeyHoldToRepeatCheckBox"
+                    IsChecked="False"
+                    VerticalAlignment="Center"
+                    Foreground="White"
+                    Background="Transparent"/>
+          <TextBlock Text="Hold to Repeat" 
+                     FontSize="14" 
+                     Foreground="White" 
+                     VerticalAlignment="Center"/>
+        </StackPanel>
+      </StackPanel>
+
+      <!-- Layer Switch Direction Panel (for Layer Switch) -->
+      <StackPanel x:Name="LayerSwitchPanel" HorizontalAlignment="Center" IsVisible="False">
+        <TextBlock Text="Direction:"
+				   HorizontalAlignment="Center"
+                   FontSize="16" 
+                   FontWeight="Bold"
+                   Foreground="White" 
+                   Margin="0,0,0,8"/>
+        
+        <ComboBox x:Name="LayerSwitchDirectionComboBox" 
+                  Width="250" 
+                  Height="40" 
+                  FontSize="16"
+                  Background="#404040" 
+                  Foreground="White" 
+                  BorderBrush="#707070" 
+                  BorderThickness="2" 
+                  CornerRadius="5"
+                  SelectedIndex="0">
+          <ComboBoxItem Content="Up"/>
+          <ComboBoxItem Content="Down"/>
+        </ComboBox>
+      </StackPanel>
+
+      <!-- Key Combo Builder (for Key Combo) -->
+      <StackPanel x:Name="KeyComboPanel" HorizontalAlignment="Center" IsVisible="False">
+        <TextBlock Text="Key Combination:"
+				   HorizontalAlignment="Center"
+                   FontSize="16" 
+                   FontWeight="Bold"
+                   Foreground="White" 
+                   Margin="0,0,0,8"/>
+        
+        <ScrollViewer Height="40" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel x:Name="KeyComboContainer" Orientation="Horizontal" Spacing="5">
+              <!-- First key dropdown -->
+              <Border BorderBrush="#707070" BorderThickness="2" CornerRadius="5" Background="#404040">
+                <ComboBox x:Name="FirstKeyComboBox" Width="120" Height="35" 
+                          FontSize="14" Background="#404040" Foreground="White" 
+                          BorderBrush="Transparent" BorderThickness="0">
+                  <ComboBoxItem Content="Ctrl"/>
+                  <ComboBoxItem Content="Alt"/>
+                  <ComboBoxItem Content="Shift"/>
+                  <ComboBoxItem Content="Win"/>
+                  <ComboBoxItem Content="A"/>
+                  <ComboBoxItem Content="B"/>
+                  <ComboBoxItem Content="C"/>
+                  <ComboBoxItem Content="D"/>
+                  <ComboBoxItem Content="E"/>
+                  <ComboBoxItem Content="F"/>
+                  <ComboBoxItem Content="G"/>
+                  <ComboBoxItem Content="H"/>
+                  <ComboBoxItem Content="I"/>
+                  <ComboBoxItem Content="J"/>
+                  <ComboBoxItem Content="K"/>
+                  <ComboBoxItem Content="L"/>
+                  <ComboBoxItem Content="M"/>
+                  <ComboBoxItem Content="N"/>
+                  <ComboBoxItem Content="O"/>
+                  <ComboBoxItem Content="P"/>
+                  <ComboBoxItem Content="Q"/>
+                  <ComboBoxItem Content="R"/>
+                  <ComboBoxItem Content="S"/>
+                  <ComboBoxItem Content="T"/>
+                  <ComboBoxItem Content="U"/>
+                  <ComboBoxItem Content="V"/>
+                  <ComboBoxItem Content="W"/>
+                  <ComboBoxItem Content="X"/>
+                  <ComboBoxItem Content="Y"/>
+                  <ComboBoxItem Content="Z"/>
+                  <ComboBoxItem Content="Space"/>
+                  <ComboBoxItem Content="Enter"/>
+                  <ComboBoxItem Content="Tab"/>
+                  <ComboBoxItem Content="Esc"/>
+                  <ComboBoxItem Content="Backspace"/>
+                  <ComboBoxItem Content="Delete"/>
+                  <ComboBoxItem Content="Home"/>
+                  <ComboBoxItem Content="End"/>
+                  <ComboBoxItem Content="Page Up"/>
+                  <ComboBoxItem Content="Page Down"/>
+                  <ComboBoxItem Content="Arrow Up"/>
+                  <ComboBoxItem Content="Arrow Down"/>
+                  <ComboBoxItem Content="Arrow Left"/>
+                  <ComboBoxItem Content="Arrow Right"/>
+                  <ComboBoxItem Content="F1"/>
+                  <ComboBoxItem Content="F2"/>
+                  <ComboBoxItem Content="F3"/>
+                  <ComboBoxItem Content="F4"/>
+                  <ComboBoxItem Content="F5"/>
+                  <ComboBoxItem Content="F6"/>
+                  <ComboBoxItem Content="F7"/>
+                  <ComboBoxItem Content="F8"/>
+                  <ComboBoxItem Content="F9"/>
+                  <ComboBoxItem Content="F10"/>
+                  <ComboBoxItem Content="F11"/>
+                  <ComboBoxItem Content="F12"/>
+                  <ComboBoxItem Content="Left Mouse"/>
+                  <ComboBoxItem Content="Right Mouse"/>
+                  <ComboBoxItem Content="Middle Mouse"/>
+                </ComboBox>
+              </Border>
+          </StackPanel>
+        </ScrollViewer>
+        
+        <!-- Control buttons under the key boxes -->
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5,0,0" Spacing="10">
+          <Button x:Name="AddKeyButton" Content="+" Width="35" Height="35" 
+                  FontSize="18" FontWeight="Bold"
+                  Background="#00FFFF" Foreground="Black" 
+                  BorderBrush="#00FFFF" BorderThickness="0" 
+                  CornerRadius="5" Click="AddKeyButton_Click"
+                  HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+          
+          <Button x:Name="RemoveKeyButton" Content="-" Width="35" Height="35" 
+                  FontSize="18" FontWeight="Bold"
+                  Background="#FF4444" Foreground="White" 
+                  BorderBrush="#FF4444" BorderThickness="0" 
+                  CornerRadius="5" Click="RemoveKeyButton_Click"
+                  IsEnabled="False"
+                  HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+        </StackPanel>
+      </StackPanel>
+      
+    </StackPanel>
+    
+    <!-- Buttons -->
+    <StackPanel Grid.Row="2" 
+                Orientation="Horizontal" 
+                HorizontalAlignment="Center" 
+                Spacing="55"
+                Margin="0,-100,0,0">
+      
+      <Button x:Name="SaveButton"
+              Content="Save" 
+              Width="100" 
+              Height="40" 
+              FontSize="16" 
+              FontWeight="Bold" 
+              Background="#404040" 
+              Foreground="White" 
+              BorderBrush="#707070" 
+              BorderThickness="2" 
+              CornerRadius="5"
+              Click="SaveButton_Click"/>
+      
+      <Button x:Name="CancelButton"
+              Content="Cancel" 
+              Width="100" 
+              Height="40" 
+              FontSize="16" 
+              FontWeight="Bold" 
+              Background="#404040" 
+              Foreground="White" 
+              BorderBrush="#707070" 
+              BorderThickness="2" 
+              CornerRadius="5"
+              Click="CancelButton_Click"/>
+      
+    </StackPanel>
+    
+  </Grid>
+</Window>

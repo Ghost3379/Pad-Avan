@@ -1,0 +1,261 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PadAwan_Force.ViewModels"
+        x:Class="PadAwan_Force.Views.UpdateWindow"
+        x:DataType="vm:UpdateWindowViewModel"
+        Title="Update Manager"
+        Width="550" Height="600"
+        CanResize="False"
+        Background="Black"
+        Icon="/Assets/Pad-Avan Force logo v2.ico"
+        WindowStartupLocation="CenterOwner">
+  
+  <Grid Margin="30">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    
+    <!-- Top horizontal rectangle -->
+    <Rectangle Grid.Row="0" Grid.Column="0"
+               Fill="#1A1A1A" 
+               Height="50" 
+               VerticalAlignment="Top" 
+               Margin="-30,-30,-30,0"/>
+    
+    <!-- Bottom horizontal rectangle -->
+    <Rectangle Grid.Row="2" Grid.Column="0"
+               Fill="#1A1A1A" 
+               Height="50" 
+               VerticalAlignment="Bottom" 
+               Margin="-30,0,-30,-30"/>
+    
+    <!-- Title -->
+    <TextBlock Grid.Row="0" 
+               Text="Update Manager" 
+               FontSize="32" 
+               FontWeight="Bold" 
+               Foreground="#00FFFF"
+               HorizontalAlignment="Left" 
+               Margin="-20,-25,0,30"/>
+
+    <!-- Content -->
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,20,0,0" MaxHeight="400">
+      <StackPanel Spacing="20" Margin="0,0,0,20">
+        
+        <!-- Progress Bar (at top of scrollable area) -->
+        <Border Background="#2A2A2A" 
+                CornerRadius="10" 
+                Padding="20" 
+                IsVisible="{Binding IsUpdating}">
+          <StackPanel Spacing="12">
+            <TextBlock Text="{Binding UpdateStatus}" 
+                       FontSize="15" 
+                       FontWeight="SemiBold"
+                       Foreground="White" 
+                       HorizontalAlignment="Center"/>
+            <ProgressBar Value="{Binding UpdateProgress}" 
+                        Maximum="100" 
+                        Height="30"
+                        Background="#404040"
+                        Foreground="#00FFFF"
+                        Margin="0,5,0,5"/>
+            <TextBlock Text="{Binding UpdateProgressText}" 
+                       FontSize="12" 
+                       Foreground="#B0B0B0" 
+                       HorizontalAlignment="Center"/>
+          </StackPanel>
+        </Border>
+        
+        <!-- Current Versions -->
+        <Border Background="#2A2A2A" CornerRadius="10" Padding="20">
+          <StackPanel Spacing="15">
+            <TextBlock Text="Current Versions" 
+                       FontSize="18" 
+                       FontWeight="Bold"
+                       Foreground="White" 
+                       HorizontalAlignment="Center"
+                       Margin="0,0,0,5"/>
+            
+            <Grid ColumnDefinitions="*,*" HorizontalAlignment="Center" ColumnSpacing="30">
+              <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                <TextBlock Text="Device Firmware:" 
+                           FontSize="13" 
+                           Foreground="#B0B0B0"
+                           HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding DeviceFirmwareVersion}" 
+                           FontSize="18" 
+                           FontWeight="Bold"
+                           Foreground="#00FFFF"
+                           HorizontalAlignment="Center"
+                           Margin="0,5,0,0"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           MaxWidth="150"/>
+              </StackPanel>
+              
+              <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                <TextBlock Text="Software:" 
+                           FontSize="13" 
+                           Foreground="#B0B0B0"
+                           HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding SoftwareVersion}" 
+                           FontSize="18" 
+                           FontWeight="Bold"
+                           Foreground="#00FFFF"
+                           HorizontalAlignment="Center"
+                           Margin="0,5,0,0"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           MaxWidth="150"/>
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+        </Border>
+      
+      <!-- Check for Updates Button -->
+      <Button Content="Check for Updates" 
+              Width="200" 
+              Height="40" 
+              FontSize="16" 
+              FontWeight="Bold" 
+              Background="#404040" 
+              Foreground="White" 
+              BorderBrush="#707070" 
+              BorderThickness="2" 
+              CornerRadius="5"
+              HorizontalAlignment="Center"
+              Command="{Binding CheckForUpdatesCommand}"/>
+      
+        <!-- Firmware Update Info -->
+        <Border Background="#2A2A2A" CornerRadius="10" Padding="20" IsVisible="{Binding HasUpdateInfo}">
+          <StackPanel Spacing="15">
+            <TextBlock Text="Available Firmware Update" 
+                       FontSize="18" 
+                       FontWeight="Bold"
+                       Foreground="White" 
+                       HorizontalAlignment="Center"
+                       Margin="0,0,0,5"/>
+            
+            <!-- Latest Firmware Version -->
+            <StackPanel HorizontalAlignment="Center" Margin="0,0,0,10">
+              <TextBlock Text="Latest Firmware:" 
+                         FontSize="13" 
+                         Foreground="#B0B0B0"
+                         HorizontalAlignment="Center"/>
+              <TextBlock Text="{Binding LatestFirmwareVersion}" 
+                         FontSize="20" 
+                         FontWeight="Bold"
+                         Foreground="LimeGreen"
+                         HorizontalAlignment="Center"
+                         Margin="0,5,0,0"
+                         TextWrapping="Wrap"
+                         TextAlignment="Center"
+                         MaxWidth="200"/>
+            </StackPanel>
+            
+            <!-- Firmware Update Button -->
+            <StackPanel HorizontalAlignment="Center" Margin="0,10,0,0" Spacing="10">
+              <Button Content="Update Firmware" 
+                      Width="220" 
+                      Height="40" 
+                      FontSize="14" 
+                      FontWeight="Bold" 
+                      Background="#00FFFF" 
+                      Foreground="Black" 
+                      BorderBrush="#00AAAA" 
+                      BorderThickness="2" 
+                      CornerRadius="5"
+                      HorizontalAlignment="Center"
+                      IsEnabled="{Binding CanUpdateFirmware}"
+                      Command="{Binding UpdateFirmwareCommand}"/>
+              <TextBlock Text="This will prepare your device and open the firmware flasher.&#x0a;The app will prevent reconnection during the update process." 
+                         FontSize="11" 
+                         Foreground="#909090"
+                         HorizontalAlignment="Center"
+                         TextWrapping="Wrap"
+                         TextAlignment="Center"
+                         MaxWidth="400"
+                         Margin="0,5,0,0"/>
+            </StackPanel>
+            
+            <!-- Software Update Button -->
+            <StackPanel HorizontalAlignment="Center" Margin="0,10,0,0">
+              <Button Content="Update Software" 
+                      Width="160" 
+                      Height="40" 
+                      FontSize="14" 
+                      FontWeight="Bold" 
+                      Background="#404040" 
+                      Foreground="White" 
+                      BorderBrush="#707070" 
+                      BorderThickness="2" 
+                      CornerRadius="5"
+                      IsEnabled="{Binding CanUpdateSoftware}"
+                      Command="{Binding UpdateSoftwareCommand}"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      
+        <!-- Software Update Info -->
+        <Border Background="#2A2A2A" CornerRadius="10" Padding="20" IsVisible="{Binding HasUpdateInfo}">
+          <StackPanel Spacing="15">
+            <TextBlock Text="Available Software Update" 
+                       FontSize="18" 
+                       FontWeight="Bold"
+                       Foreground="White" 
+                       HorizontalAlignment="Center"
+                       Margin="0,0,0,5"/>
+            
+            <!-- Latest Software Version -->
+            <StackPanel HorizontalAlignment="Center" Margin="0,0,0,15">
+              <TextBlock Text="Latest Software:" 
+                         FontSize="13" 
+                       Foreground="#B0B0B0" 
+                       HorizontalAlignment="Center"/>
+              <TextBlock Text="{Binding LatestSoftwareVersion}" 
+                         FontSize="20" 
+                         FontWeight="Bold"
+                         Foreground="LimeGreen"
+                         HorizontalAlignment="Center"
+                         Margin="0,5,0,0"
+                         TextWrapping="Wrap"
+                         TextAlignment="Center"
+                         MaxWidth="200"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+        
+        <!-- Status Message -->
+        <TextBlock Text="{Binding StatusMessage}" 
+                   FontSize="14" 
+                   Foreground="{Binding StatusMessageColor}"
+                   HorizontalAlignment="Center"
+                   TextWrapping="Wrap"
+                   MaxWidth="420"
+                   TextAlignment="Center"
+                   Margin="0,15,0,0"/>
+        
+      </StackPanel>
+    </ScrollViewer>
+    
+    <!-- Close Button -->
+    <Button Grid.Row="2" 
+            Content="Close" 
+            Width="100" 
+            Height="40" 
+            FontSize="16" 
+            FontWeight="Bold" 
+            Background="#404040" 
+            Foreground="White" 
+            BorderBrush="#707070" 
+            BorderThickness="2" 
+            CornerRadius="5"
+            HorizontalAlignment="Center"
+            Margin="0,10,0,30"
+            Click="CloseButton_Click"/>
+    
+  </Grid>
+</Window>
+

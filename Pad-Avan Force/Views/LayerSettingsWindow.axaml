@@ -1,0 +1,206 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:models="using:PadAwan_Force.Models"
+        x:Class="PadAwan_Force.Views.LayerSettingsWindow"
+        Title="Layer Settings"
+        Width="500" Height="600"
+        CanResize="False"
+        Background="Black"
+        Icon="/Assets/Pad-Avan Force logo v2.ico"
+        WindowStartupLocation="CenterOwner">
+  
+  <Grid Margin="40">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    
+    <!-- Top horizontal rectangle -->
+    <Rectangle Grid.Row="0"
+               Fill="#1A1A1A" 
+               Height="60" 
+               VerticalAlignment="Top" 
+               Margin="-40,-40,-40,-100"/>
+    
+    <!-- Bottom horizontal rectangle -->
+    <Rectangle Grid.Row="3"
+               Fill="#1A1A1A" 
+               Height="60" 
+               VerticalAlignment="Bottom" 
+               Margin="-40,0,-40,-40"/>
+    
+    <!-- Note centered in bottom gray rectangle -->
+    <TextBlock Grid.Row="3"
+               Text="Note: The first Layer is protected and cannot be moved or deleted" 
+               FontSize="11" 
+               Foreground="#707070"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Bottom"
+               Margin="-40,0,-40,-30"
+               TextWrapping="Wrap"
+               MaxWidth="400"/>
+    
+    <!-- Title -->
+    <StackPanel Grid.Row="0" 
+                HorizontalAlignment="Left" 
+                Margin="-30,-35,0,30">
+      <TextBlock Text="Layer Settings" 
+                 FontSize="32" 
+                 FontWeight="Bold" 
+                 Foreground="#00FFFF"/>
+    </StackPanel>
+    
+    <!-- Layer List with Drag and Drop -->
+    <ScrollViewer Grid.Row="1" 
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+      <ItemsControl x:Name="LayerItemsControl">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Vertical" Spacing="10"/>
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="models:Layer">
+            <Border x:Name="LayerBorder"
+                    Background="#404040" 
+                    CornerRadius="5" 
+                    Padding="15"
+                    BorderBrush="#707070"
+                    BorderThickness="2"
+                    Margin="0,0,0,5">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- Drag Handle / Move Buttons -->
+                <StackPanel x:Name="MoveButtonsPanel"
+                            Grid.Column="0" 
+                            Orientation="Vertical" 
+                            Spacing="5"
+                            VerticalAlignment="Center"
+                            Margin="0,0,15,0">
+                  <Button x:Name="MoveUpButton"
+                          Content="↑"
+                          Width="30"
+                          Height="20"
+                          FontSize="12"
+                          Background="#404040"
+                          Foreground="#00FFFF"
+                          BorderBrush="#707070"
+                          BorderThickness="1"
+                          CornerRadius="3"
+                          Padding="0"
+                          Click="MoveUpButton_Click"
+                          Tag="{Binding}"/>
+                  <Button x:Name="MoveDownButton"
+                          Content="↓"
+                          Width="30"
+                          Height="20"
+                          FontSize="12"
+                          Background="#404040"
+                          Foreground="#00FFFF"
+                          BorderBrush="#707070"
+                          BorderThickness="1"
+                          CornerRadius="3"
+                          Padding="0"
+                          Click="MoveDownButton_Click"
+                          Tag="{Binding}"/>
+                </StackPanel>
+                
+                <!-- Layer Name TextBox (Inline Editing) -->
+                <TextBox Grid.Column="1"
+                         Text="{Binding Name, Mode=TwoWay}"
+                         FontSize="16"
+                         Background="Transparent"
+                         Foreground="White"
+                         BorderBrush="#707070"
+                         BorderThickness="1"
+                         CornerRadius="3"
+                         Padding="8,5"
+                         VerticalAlignment="Center"
+                         LostFocus="LayerNameTextBox_LostFocus"/>
+                
+                <!-- Layer ID Display / Layer 1 Badge -->
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Margin="15,0,0,0"
+                            Spacing="8">
+                  <TextBlock Text="{Binding Id, StringFormat='ID: {0}'}"
+                             FontSize="12"
+                             Foreground="#707070"
+                             VerticalAlignment="Center"/>
+                  <Border x:Name="Layer1Badge"
+                          Background="#00FFFF"
+                          CornerRadius="3"
+                          Padding="5,2"
+                          IsVisible="False">
+                    <TextBlock Text="Layer 1"
+                               FontSize="10"
+                               FontWeight="Bold"
+                               Foreground="Black"
+                               VerticalAlignment="Center"/>
+                  </Border>
+                </StackPanel>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+    
+    <!-- Wrap Around Checkbox -->
+    <StackPanel Grid.Row="2" 
+                Orientation="Horizontal" 
+                HorizontalAlignment="Left" 
+                VerticalAlignment="Center"
+                Margin="0,10,0,10"
+                Spacing="10">
+      <CheckBox x:Name="WrapAroundCheckBox"
+                Content="Enable wrap-around (loop through layers)"
+                FontSize="14"
+                Foreground="White"
+                IsChecked="True"/>
+    </StackPanel>
+    
+    <!-- Buttons -->
+    <StackPanel Grid.Row="3" 
+                Orientation="Horizontal" 
+                HorizontalAlignment="Center" 
+                Spacing="20"
+                Margin="0,20,0,40">
+     
+      <Button Content="Save" 
+              Width="100" 
+              Height="40" 
+              FontSize="16" 
+              FontWeight="Bold" 
+              Background="#404040" 
+              Foreground="White" 
+              BorderBrush="#707070" 
+              BorderThickness="2" 
+              CornerRadius="5"
+              Click="SaveButton_Click"/>
+      
+      <Button Content="Cancel" 
+              Width="100" 
+              Height="40" 
+              FontSize="16" 
+              FontWeight="Bold" 
+              Background="#404040" 
+              Foreground="White" 
+              BorderBrush="#707070" 
+              BorderThickness="2" 
+              CornerRadius="5"
+              Click="CancelButton_Click"/>
+      
+    </StackPanel>
+    
+  </Grid>
+</Window>
