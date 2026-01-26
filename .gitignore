@@ -2,7 +2,9 @@
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
-[Rr]eleases/
+# Allow releases folder for firmware distribution
+!releases/
+!releases/**
 x64/
 x86/
 [Ww][Ii][Nn]32/
@@ -33,7 +35,9 @@ bld/
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
-[Rr]eleases/
+# Allow releases folder for firmware distribution
+!releases/
+!releases/**
 x64/
 x86/
 [Ww][Ii][Nn]32/
@@ -65,6 +69,8 @@ artifacts/
 *.exe
 *.so
 *.dylib
+# Allow installer .exe files
+!installer/**/*.exe
 
 # Arduino
 *.hex
