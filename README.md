@@ -7,7 +7,7 @@ A powerful, customizable macro pad with 6 buttons and 2 rotary encoders, featuri
 
 🌐 **Website**: [https://pad-avan.base44.app](https://pad-avan.base44.app)
 
-![Pad-Avan](https://img.shields.io/badge/Version-1.3.0-blue)
+![Pad-Avan](https://img.shields.io/badge/Version-2.0.0-blue)
 ![.NET](https://img.shields.io/badge/.NET-8.0-purple)
 ![Avalonia](https://img.shields.io/badge/Avalonia-11.0-green)
 ![Arduino](https://img.shields.io/badge/Arduino-ESP32--S3-orange)
@@ -32,14 +32,14 @@ A powerful, customizable macro pad with 6 buttons and 2 rotary encoders, featuri
 ## 📋 Requirements
 
 ### Hardware
-- **Unexpected Maker (UM) Feather S3** or **Feather S3D** (ESP32-S3)
+- **Unexpected Maker (UM) Feather S3D** (ESP32-S3) or Legacy version: Feather S3
 - 6x Tactile buttons
 - 2x Rotary encoders with push buttons
 - SSD1306 OLED display (128x32)
 - **SD SPI Storage Module** (2GB) - Integrated storage module (not a physical microSD card)
 - USB-C cable
 
-**Note**: The Feather S3 uses a voltage divider for battery measurement, while the Feather S3D uses a MAX chip.
+**Note**: The Feather S3 uses a voltage divider for battery measurement, while the Feather S3D uses a MAX17048G+T10 chip, which is far more efficient and precise.
 
 ### Software
 - **Arduino IDE** (2.0+) with ESP32 board support
@@ -52,24 +52,19 @@ A powerful, customizable macro pad with 6 buttons and 2 rotary encoders, featuri
 
 ### 1. Hardware Setup
 
-1. Solder components according to the wiring diagram (TODO: Add diagram)
+1. Solder components according to the wiring diagram
 2. The **SD SPI Storage Module (2GB)** is already integrated on the board - no physical SD card needed
 3. Connect via USB-C
 
 ### 2. Firmware Installation
 
 **Choose the correct firmware version:**
-<<<<<<< HEAD
+
 - **Feather S3D** (recommended): Uses MAX chip for battery measurement
   - Use: `FeatherS3 scripts/Arduino version/padavan_fs3d/padavan_fs3d.ino`
 - **Feather S3** (legacy): Uses voltage divider for battery measurement
-  - Use: `FeatherS3 scripts/Arduino version/padavan_fs3/padavan_fs3.ino` (if available)
-=======
-- **Feather S3** (older): Uses voltage divider for battery measurement
-  - Use: `FeatherS3 scripts/Arduino version/Pad-Avan fs3/Pad-Avan_fs3.ino`
-- **Feather S3D** (newer): Uses MAX chip for battery measurement
-  - Use: `FeatherS3 scripts/Arduino version/Pad-Avan fs3d/Pad-Avan_fs3d.ino`
->>>>>>> 1907bc308604ee760159c1007ff690f4b946aa28
+  - Use: `FeatherS3 scripts/Arduino version/padavan_fs3/padavan_fs3.ino`
+
 
 #### Option A: Build from Source
 1. Open the appropriate `.ino` file for your board in Arduino IDE
@@ -247,37 +242,6 @@ The device communicates via USB Serial at 115200 baud:
 - `BEGIN_JSON` ... `END_JSON` → `UPLOAD_OK` (upload configuration)
 - `BATTERY_STATUS` → `BATTERY:percentage,voltage,charging` (battery info)
 
-### Configuration File Format
-
-Configurations are stored as JSON:
-
-```json
-{
-  "version": "1.0",
-  "currentLayer": 1,
-  "layers": [
-    {
-      "id": 1,
-      "name": "Layer 1",
-      "buttons": {
-        "1": {
-          "action": "Type Text",
-          "key": "Hello World"
-        }
-      },
-      "knobs": {
-        "A": {
-          "ccwAction": "Decrease Volume",
-          "cwAction": "Increase Volume",
-          "pressAction": "Special Key",
-          "pressKey": "ENTER"
-        }
-      }
-    }
-  ]
-}
-```
-
 ## 🐛 Troubleshooting
 
 ### Device Not Connecting
@@ -299,23 +263,6 @@ Configurations are stored as JSON:
 1. Verify I2C connections (SDA/SCL)
 2. Check display address (usually 0x3C)
 3. Ensure display is enabled in configuration
-
-## 🔮 Roadmap
-
-- [x] Basic button and knob configuration
-- [x] Layer management
-- [x] Configuration import/export
-- [x] Update system UI
-- [x] Display integration (OLED 128x32)
-- [x] Multi-file JSON config structure
-- [x] Improved connection stability
-- [ ] Button and knob action handlers (in progress)
-- [x] GitHub API integration for updates
-- [ ] esptool integration for firmware flashing
-- [x] Custom key combo builder improvements
-- [ ] Macro recording/playback
-- [ ] RGB LED support (if hardware added)
-- [ ] Wireless mode (Bluetooth HID)
 
 ## 🤝 Contributing
 
