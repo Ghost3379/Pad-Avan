@@ -1246,14 +1246,14 @@ uint8_t getComboKeycode(String keyStr) {
 // ===== KEY COMBO EXECUTION =====
 void executeKeyCombo(String comboString) {
   // Parse combo like "Ctrl+C", "Ctrl+Shift+C", or "Win+Alt+Tab"
-  // Support up to 3 keys: 2 modifiers + 1 key
+  // Support up to 6 keys: modifiers + key
   
   // Split by '+' to get all parts
-  String parts[3];
+  String parts[6];
   int partCount = 0;
   int lastPos = 0;
   
-  for (int i = 0; i < comboString.length() && partCount < 3; i++) {
+  for (int i = 0; i < comboString.length() && partCount < 6; i++) {
     if (comboString.charAt(i) == '+') {
       parts[partCount] = comboString.substring(lastPos, i);
       parts[partCount].trim();
@@ -1263,7 +1263,7 @@ void executeKeyCombo(String comboString) {
     }
   }
   // Add the last part (the actual key)
-  if (lastPos < comboString.length() && partCount < 3) {
+  if (lastPos < comboString.length() && partCount < 6) {
     parts[partCount] = comboString.substring(lastPos);
     parts[partCount].trim();
     parts[partCount].toUpperCase();

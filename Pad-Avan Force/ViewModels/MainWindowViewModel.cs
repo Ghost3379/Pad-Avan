@@ -109,6 +109,24 @@ namespace PadAwan_Force.ViewModels
         [ObservableProperty]
         private int displayModeIndex = 0; // 0=layer, 1=battery, 2=time
 
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(FlashPadBorderBrush))]
+        [NotifyPropertyChangedFor(nameof(FlashPadBoxShadow))]
+        [NotifyPropertyChangedFor(nameof(FlashPadToolTip))]
+        private bool hasUnsavedDeviceChanges = false;
+
+        public IBrush FlashPadBorderBrush => HasUnsavedDeviceChanges 
+            ? Brushes.Cyan 
+            : Brushes.LimeGreen;
+
+        public BoxShadows FlashPadBoxShadow => HasUnsavedDeviceChanges 
+            ? BoxShadows.Parse("0 0 14 3 #8000FFFF") 
+            : new BoxShadows();
+
+        public string FlashPadToolTip => HasUnsavedDeviceChanges 
+            ? "Unsynced changes — click to flash to Pad" 
+            : "Pad is in sync";
+
         partial void OnDisplayModeChanged(string value)
         {
             // Update the index when display mode changes programmatically
@@ -137,6 +155,7 @@ namespace PadAwan_Force.ViewModels
             
             // Update the display mode
             DisplayMode = newMode;
+            HasUnsavedDeviceChanges = true;
             
             // Save display settings locally - will be sent when user clicks "Send to Device"
             System.Diagnostics.Debug.WriteLine($"Display mode index changed to {value} ({newMode}) - saved locally");
@@ -146,6 +165,7 @@ namespace PadAwan_Force.ViewModels
 
         partial void OnDisplayEnabledChanged(bool value)
         {
+            HasUnsavedDeviceChanges = true;
             // Save display settings locally - will be sent when user clicks "Send to Device"
             System.Diagnostics.Debug.WriteLine($"Display enabled changed to {value} - saved locally");
             DisplayText = $"Display {(value ? "enabled" : "disabled")} - saved locally. Press 'Send to Device' to transfer.";
@@ -224,6 +244,13 @@ namespace PadAwan_Force.ViewModels
             get => _button6Text;
             set => SetProperty(ref _button6Text, value);
         }
+
+        [ObservableProperty] private string button1ToolTip = "";
+        [ObservableProperty] private string button2ToolTip = "";
+        [ObservableProperty] private string button3ToolTip = "";
+        [ObservableProperty] private string button4ToolTip = "";
+        [ObservableProperty] private string button5ToolTip = "";
+        [ObservableProperty] private string button6ToolTip = "";
 
         [ObservableProperty]
         private string debugInfo = "Debug: Not started";
@@ -475,6 +502,13 @@ namespace PadAwan_Force.ViewModels
             Button4Color = newButton4Color;
             Button5Color = newButton5Color;
             Button6Color = newButton6Color;
+
+            Button1ToolTip = GetButtonToolTip(button1Config);
+            Button2ToolTip = GetButtonToolTip(button2Config);
+            Button3ToolTip = GetButtonToolTip(button3Config);
+            Button4ToolTip = GetButtonToolTip(button4Config);
+            Button5ToolTip = GetButtonToolTip(button5Config);
+            Button6ToolTip = GetButtonToolTip(button6Config);
             
             // System.Diagnostics.Debug.WriteLine($"After SetProperty: 1='{Button1Text}', 2='{Button2Text}', 3='{Button3Text}', 4='{Button4Text}', 5='{Button5Text}', 6='{Button6Text}'");
         }
@@ -525,6 +559,12 @@ namespace PadAwan_Force.ViewModels
             {
                 return " "; // Return space instead of empty
             }
+
+            // Prioritize user-configured label
+            if (!string.IsNullOrWhiteSpace(config.Label))
+            {
+                return config.Label;
+            }
             
             // Check for Layer Switch action (case-insensitive and handle variations)
             if (!string.IsNullOrEmpty(config.Action) && 
@@ -541,6 +581,30 @@ namespace PadAwan_Force.ViewModels
             }
             
             return config.Key;
+        }
+
+        private string GetButtonToolTip(ButtonConfig? config)
+        {
+            if (config == null || string.IsNullOrEmpty(config.Action) || config.Action == "None")
+            {
+                return "Unconfigured button (click to edit)";
+            }
+
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(config.Label))
+            {
+                parts.Add($"Label: {config.Label}");
+            }
+            parts.Add($"Action: {config.Action}");
+            if (!string.IsNullOrWhiteSpace(config.Key))
+            {
+                parts.Add($"Key: {config.Key}");
+            }
+            if (config.HoldToRepeat)
+            {
+                parts.Add("Hold to repeat enabled");
+            }
+            return string.Join(" | ", parts);
         }
         
         // Button color properties for Layer Switch indication
@@ -657,11 +721,69 @@ namespace PadAwan_Force.ViewModels
 
             Layers.Add(newLayer);
             SelectedLayerIndex = Layers.Count - 1;
+            HasUnsavedDeviceChanges = true;
             
             System.Diagnostics.Debug.WriteLine($"Added new layer. SelectedLayerIndex: {SelectedLayerIndex}");
             System.Diagnostics.Debug.WriteLine($"CurrentLayer after add: {CurrentLayer?.Name} (ID={CurrentLayer?.Id})");
             
             await SaveLayersAsync();
+        }
+
+        [RelayCommand]
+        private async Task DuplicateLayerAsync()
+        {
+            if (CurrentLayer == null)
+            {
+                System.Diagnostics.Debug.WriteLine("Cannot duplicate - CurrentLayer is null");
+                return;
+            }
+
+            int highestLayerId = Layers.Count > 0 ? Layers.Max(l => l.Id) : 0;
+            int newLayerId = highestLayerId + 1;
+
+            // Deep clone buttons
+            var newButtons = new Dictionary<string, ButtonConfig>();
+            foreach (var kvp in CurrentLayer.Buttons)
+            {
+                newButtons[kvp.Key] = new ButtonConfig
+                {
+                    Action = kvp.Value.Action,
+                    Key = kvp.Value.Key,
+                    Label = kvp.Value.Label,
+                    Enabled = kvp.Value.Enabled,
+                    HoldToRepeat = kvp.Value.HoldToRepeat
+                };
+            }
+
+            // Deep clone knobs
+            var newKnobs = new Dictionary<string, KnobConfig>();
+            foreach (var kvp in CurrentLayer.Knobs)
+            {
+                newKnobs[kvp.Key] = new KnobConfig
+                {
+                    CcwAction = kvp.Value.CcwAction,
+                    CwAction = kvp.Value.CwAction,
+                    PressAction = kvp.Value.PressAction,
+                    CcwKey = kvp.Value.CcwKey,
+                    CwKey = kvp.Value.CwKey,
+                    PressKey = kvp.Value.PressKey,
+                    PressHoldToRepeat = kvp.Value.PressHoldToRepeat
+                };
+            }
+
+            var newLayer = new Layer
+            {
+                Id = newLayerId,
+                Name = $"{CurrentLayer.Name} (Copy)",
+                Buttons = newButtons,
+                Knobs = newKnobs
+            };
+
+            Layers.Add(newLayer);
+            SelectedLayerIndex = Layers.Count - 1;
+            HasUnsavedDeviceChanges = true;
+            await SaveLayersAsync();
+            DisplayText = $"Cloned layer: {newLayer.Name}";
         }
 
         [RelayCommand]
@@ -720,6 +842,7 @@ namespace PadAwan_Force.ViewModels
             }
 
             SelectedLayerIndex = targetIndex;
+            HasUnsavedDeviceChanges = true;
             await SaveLayersAsync();
         }
 
@@ -758,6 +881,7 @@ namespace PadAwan_Force.ViewModels
                 UpdateKnobTexts();
                 
                 // Save changes
+                HasUnsavedDeviceChanges = true;
                 await SaveLayersAsync();
                 
                 // Force UI refresh
@@ -905,12 +1029,12 @@ namespace PadAwan_Force.ViewModels
             
             // Configuration is saved locally - user can send to device manually with "Send to Device" button
             Console.WriteLine("Configuration saved locally - use 'Send to Device' button to transfer to FeatherS3");
-                DisplayText = "✅ Configuration saved";
+                DisplayText = "Configuration saved";
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error saving configuration: {ex.Message}");
-                DisplayText = $"❌ Error saving config: {ex.Message}";
+                DisplayText = $"Error saving config: {ex.Message}";
                 System.Diagnostics.Debug.WriteLine($"Error saving configuration: {ex.Message}\n{ex.StackTrace}");
             }
         }
@@ -1060,6 +1184,7 @@ namespace PadAwan_Force.ViewModels
                     }
                     
                     // Save the changes
+                    HasUnsavedDeviceChanges = true;
                     await SaveLayersAsync();
                     
                     System.Diagnostics.Debug.WriteLine($"Layers reordered and renamed. New order: {string.Join(", ", Layers.Select(l => l.Name))}");
@@ -1346,7 +1471,7 @@ namespace PadAwan_Force.ViewModels
                     if (!root.TryGetProperty("general", out JsonElement generalElement) ||
                         !root.TryGetProperty("layers", out JsonElement layersElement))
                     {
-                        DisplayText = "❌ Invalid configuration format";
+                        DisplayText = "Invalid configuration format";
                         System.Diagnostics.Debug.WriteLine("Configuration missing 'general' or 'layers' property");
                         return;
                     }
@@ -1358,7 +1483,7 @@ namespace PadAwan_Force.ViewModels
 
                     if (mainWindow == null)
                     {
-                        DisplayText = "❌ Cannot open file dialog - main window not found";
+                        DisplayText = "Cannot open file dialog - main window not found";
                         return;
                     }
 
@@ -1418,7 +1543,7 @@ namespace PadAwan_Force.ViewModels
                     Console.WriteLine("=== Configuration downloaded successfully ===");
                             Console.WriteLine($"Saved to: {zipPath}");
                     
-                            DisplayText = $"✅ Config downloaded! Saved to: {Path.GetFileName(zipPath)}";
+                            DisplayText = $"Config downloaded. Saved to: {Path.GetFileName(zipPath)}";
                             System.Diagnostics.Debug.WriteLine($"Configuration downloaded and saved to: {zipPath}");
                         }
                         finally
@@ -1441,7 +1566,7 @@ namespace PadAwan_Force.ViewModels
                 else
                 {
                     Console.WriteLine("Failed to download configuration");
-                    DisplayText = "❌ Failed to download configuration";
+                    DisplayText = "Failed to download configuration";
                     System.Diagnostics.Debug.WriteLine("Failed to download configuration from FeatherS3");
                 }
             }
@@ -1473,7 +1598,7 @@ namespace PadAwan_Force.ViewModels
 
                 if (mainWindow == null)
                 {
-                    DisplayText = "❌ Cannot open file dialog - main window not found";
+                    DisplayText = "Cannot open file dialog - main window not found";
                     return;
                 }
 
@@ -1512,7 +1637,7 @@ namespace PadAwan_Force.ViewModels
                         string generalPath = Path.Combine(tempDir, "general.json");
                         if (!File.Exists(generalPath))
                         {
-                            DisplayText = "❌ general.json not found in archive";
+                            DisplayText = "general.json not found in archive";
                             System.Diagnostics.Debug.WriteLine("general.json not found in zip archive");
                             return;
                         }
@@ -1537,7 +1662,7 @@ namespace PadAwan_Force.ViewModels
                         
                         if (layerJsonList.Count == 0)
                         {
-                            DisplayText = "❌ No layer JSON files found in archive";
+                            DisplayText = "No layer JSON files found in archive";
                             System.Diagnostics.Debug.WriteLine("No layer JSON files found in zip archive");
                             return;
                         }
@@ -1667,25 +1792,26 @@ namespace PadAwan_Force.ViewModels
                                     // Save to local file for consistency
                                     await SaveLayersAsync();
                                     
-                                    DisplayText = $"✅ Config uploaded and loaded! {config.Layers.Count} layer(s) loaded.";
-                                    Console.WriteLine($"✅ Configuration uploaded and loaded: {config.Layers.Count} layer(s), Current Layer: {config.CurrentLayer}");
+                                    HasUnsavedDeviceChanges = false;
+                                    DisplayText = $"Config uploaded and loaded. {config.Layers.Count} layer(s) loaded.";
+                                    Console.WriteLine($"Configuration uploaded and loaded: {config.Layers.Count} layer(s), Current Layer: {config.CurrentLayer}");
                                     System.Diagnostics.Debug.WriteLine($"Configuration uploaded and loaded successfully: {config.Layers.Count} layers");
                                 }
                                 else
                                 {
-                                    DisplayText = $"✅ Config uploaded! (No layers to load)";
+                                    DisplayText = "Config uploaded. (No layers to load)";
                                 }
                             }
                             catch (Exception parseEx)
                             {
                                 Console.WriteLine($"Error loading config into UI: {parseEx.Message}");
-                                DisplayText = $"✅ Config uploaded! (Error loading into UI: {parseEx.Message})";
+                                DisplayText = $"Config uploaded. (Error loading into UI: {parseEx.Message})";
                                 System.Diagnostics.Debug.WriteLine($"Error loading configuration into UI: {parseEx.Message}");
                             }
                     }
                     else
                     {
-                        DisplayText = "❌ Failed to upload configuration";
+                        DisplayText = "Failed to upload configuration";
                             System.Diagnostics.Debug.WriteLine("Failed to upload configuration from zip file");
                         }
                     }
@@ -1780,28 +1906,29 @@ namespace PadAwan_Force.ViewModels
                             var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "macropad_config.json");
                             await File.WriteAllTextAsync(configPath, configJson);
                             
-                            Console.WriteLine($"✅ Configuration loaded: {config.Layers.Count} layer(s), Current Layer: {config.CurrentLayer}");
-                            DisplayText = $"✅ Config loaded! {config.Layers.Count} layer(s) loaded.";
+                            Console.WriteLine($"Configuration loaded: {config.Layers.Count} layer(s), Current Layer: {config.CurrentLayer}");
+                            HasUnsavedDeviceChanges = false;
+                            DisplayText = $"Config loaded. {config.Layers.Count} layer(s) loaded.";
                             System.Diagnostics.Debug.WriteLine($"Configuration loaded successfully: {config.Layers.Count} layers");
                         }
                         else
                         {
-                            Console.WriteLine("⚠️ Configuration parsed but no layers found");
-                            DisplayText = "⚠️ Config read but no layers found";
+                            Console.WriteLine("Configuration parsed but no layers found");
+                            DisplayText = "Config read but no layers found";
                         }
                     }
                     catch (Exception parseEx)
                     {
                         Console.WriteLine($"Error parsing configuration JSON: {parseEx.Message}");
                         Console.WriteLine($"JSON content: {configJson.Substring(0, Math.Min(500, configJson.Length))}...");
-                        DisplayText = $"❌ Error parsing config: {parseEx.Message}";
+                        DisplayText = $"Error parsing config: {parseEx.Message}";
                         System.Diagnostics.Debug.WriteLine($"Error parsing configuration: {parseEx.Message}");
                     }
                 }
                 else
                 {
                     Console.WriteLine("Failed to read configuration");
-                    DisplayText = "❌ Failed to read configuration";
+                    DisplayText = "Failed to read configuration";
                     System.Diagnostics.Debug.WriteLine("Failed to read configuration from FeatherS3");
                 }
             }
@@ -1969,15 +2096,16 @@ namespace PadAwan_Force.ViewModels
                 
                 if (success)
                 {
+                    HasUnsavedDeviceChanges = false;
                     Console.WriteLine("ENTIRE configuration sent successfully to FeatherS3!");
                     System.Diagnostics.Debug.WriteLine("Configuration sent successfully to FeatherS3!");
-                    DisplayText = "✅ Entire configuration sent to FeatherS3!";
+                    DisplayText = "Entire configuration sent to FeatherS3";
                 }
                 else
                 {
                     Console.WriteLine("Failed to send configuration to FeatherS3");
                     System.Diagnostics.Debug.WriteLine("Failed to send configuration to FeatherS3");
-                    DisplayText = "❌ Failed to send configuration to device";
+                    DisplayText = "Failed to send configuration to device";
                 }
                 return success;
             }

@@ -169,38 +169,21 @@
                 IsChecked="True"/>
     </StackPanel>
     
-    <!-- Buttons -->
-    <StackPanel Grid.Row="3" 
-                Orientation="Horizontal" 
-                HorizontalAlignment="Center" 
-                Spacing="20"
-                Margin="0,20,0,40">
-     
-      <Button Content="Save" 
-              Width="100" 
-              Height="40" 
-              FontSize="16" 
-              FontWeight="Bold" 
-              Background="#404040" 
-              Foreground="White" 
-              BorderBrush="#707070" 
-              BorderThickness="2" 
-              CornerRadius="5"
-              Click="SaveButton_Click"/>
-      
-      <Button Content="Cancel" 
-              Width="100" 
-              Height="40" 
-              FontSize="16" 
-              FontWeight="Bold" 
-              Background="#404040" 
-              Foreground="White" 
-              BorderBrush="#707070" 
-              BorderThickness="2" 
-              CornerRadius="5"
-              Click="CancelButton_Click"/>
-      
-    </StackPanel>
+    <!-- Save Button -->
+    <Button Grid.Row="3"
+            Content="Save" 
+            Width="100" 
+            Height="40" 
+            FontSize="16" 
+            FontWeight="Bold" 
+            Background="#404040" 
+            Foreground="White" 
+            BorderBrush="#707070" 
+            BorderThickness="2" 
+            CornerRadius="5"
+            HorizontalAlignment="Center"
+            Margin="0,20,0,40"
+            Click="SaveButton_Click"/>
     
   </Grid>
 </Window>

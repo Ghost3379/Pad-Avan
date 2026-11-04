@@ -104,14 +104,50 @@
           </Grid.ColumnDefinitions>
 
           <!-- 2x3 Button Matrix -->
-          <Button x:Name="Button1" Grid.Row="0" Grid.Column="0" Margin="10" Width="100" Height="100" Background="#404040" Foreground="{Binding Button1Color}" FontSize="18" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="#707070" BorderThickness="3" Click="Button1_Click" Content="{Binding Button1Text}"/>
-          <Button x:Name="Button2" Grid.Row="0" Grid.Column="1" Margin="10" Width="100" Height="100" Background="#404040" Foreground="{Binding Button2Color}" FontSize="18" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="#707070" BorderThickness="3" Click="Button2_Click" Content="{Binding Button2Text}"/>
+          <Button x:Name="Button1" Grid.Row="0" Grid.Column="0" Margin="10" Width="100" Height="100" Background="#404040" Foreground="{Binding Button1Color}" FontSize="15" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="#707070" BorderThickness="3" Click="Button1_Click" Content="{Binding Button1Text}" ToolTip.Tip="{Binding Button1ToolTip}">
+            <Button.ContentTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="85" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+              </DataTemplate>
+            </Button.ContentTemplate>
+          </Button>
+          <Button x:Name="Button2" Grid.Row="0" Grid.Column="1" Margin="10" Width="100" Height="100" Background="#404040" Foreground="{Binding Button2Color}" FontSize="15" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="#707070" BorderThickness="3" Click="Button2_Click" Content="{Binding Button2Text}" ToolTip.Tip="{Binding Button2ToolTip}">
+            <Button.ContentTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="85" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+              </DataTemplate>
+            </Button.ContentTemplate>
+          </Button>
           
-          <Button x:Name="Button3" Grid.Row="1" Grid.Column="0" Margin="10" Width="100" Height="100" Background="#404040" Foreground="{Binding Button3Color}" FontSize="18" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="#707070" BorderThickness="3" Click="Button3_Click" Content="{Binding Button3Text}"/>
-          <Button x:Name="Button4" Grid.Row="1" Grid.Column="1" Margin="10" Width="100" Height="100" Background="#404040" Foreground="{Binding Button4Color}" FontSize="18" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="#707070" BorderThickness="3" Click="Button4_Click" Content="{Binding Button4Text}"/>
+          <Button x:Name="Button3" Grid.Row="1" Grid.Column="0" Margin="10" Width="100" Height="100" Background="#404040" Foreground="{Binding Button3Color}" FontSize="15" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="#707070" BorderThickness="3" Click="Button3_Click" Content="{Binding Button3Text}" ToolTip.Tip="{Binding Button3ToolTip}">
+            <Button.ContentTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="85" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+              </DataTemplate>
+            </Button.ContentTemplate>
+          </Button>
+          <Button x:Name="Button4" Grid.Row="1" Grid.Column="1" Margin="10" Width="100" Height="100" Background="#404040" Foreground="{Binding Button4Color}" FontSize="15" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="#707070" BorderThickness="3" Click="Button4_Click" Content="{Binding Button4Text}" ToolTip.Tip="{Binding Button4ToolTip}">
+            <Button.ContentTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="85" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+              </DataTemplate>
+            </Button.ContentTemplate>
+          </Button>
 
-          <Button x:Name="Button5" Grid.Row="2" Grid.Column="0" Margin="10" Width="100" Height="100" Background="#404040" Foreground="{Binding Button5Color}" FontSize="18" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="#707070" BorderThickness="3" Click="Button5_Click" Content="{Binding Button5Text}"/>
-          <Button x:Name="Button6" Grid.Row="2" Grid.Column="1" Margin="10" Width="100" Height="100" Background="#404040" Foreground="{Binding Button6Color}" FontSize="18" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="#707070" BorderThickness="3" Click="Button6_Click" Content="{Binding Button6Text}"/>
+          <Button x:Name="Button5" Grid.Row="2" Grid.Column="0" Margin="10" Width="100" Height="100" Background="#404040" Foreground="{Binding Button5Color}" FontSize="15" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="#707070" BorderThickness="3" Click="Button5_Click" Content="{Binding Button5Text}" ToolTip.Tip="{Binding Button5ToolTip}">
+            <Button.ContentTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="85" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+              </DataTemplate>
+            </Button.ContentTemplate>
+          </Button>
+          <Button x:Name="Button6" Grid.Row="2" Grid.Column="1" Margin="10" Width="100" Height="100" Background="#404040" Foreground="{Binding Button6Color}" FontSize="15" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="#707070" BorderThickness="3" Click="Button6_Click" Content="{Binding Button6Text}" ToolTip.Tip="{Binding Button6ToolTip}">
+            <Button.ContentTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="85" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+              </DataTemplate>
+            </Button.ContentTemplate>
+          </Button>
 
           <!-- Round Knobs - Right side of button matrix -->
           <StackPanel Grid.Row="0" Grid.Column="2" 
@@ -212,18 +248,22 @@
                         Margin="0,6,0,0"
 						Spacing="10">
 
-				<Button Content="Flash Pad"
-						Width="90"
-						Height="30"
-						FontSize="12"
-						Background="#b0b0"
-						Foreground="White"
-						BorderBrush="LimeGreen"
-						BorderThickness="2"
-						CornerRadius="3"
-						Command="{Binding SendConfigurationToDeviceCommand}"
-						HorizontalContentAlignment="Center"
-                        VerticalContentAlignment="Center"/>
+				<Border CornerRadius="3"
+						BoxShadow="{Binding FlashPadBoxShadow}">
+					<Button Content="Flash Pad"
+							Width="90"
+							Height="30"
+							FontSize="12"
+							Background="#b0b0"
+							Foreground="White"
+							BorderBrush="{Binding FlashPadBorderBrush}"
+							BorderThickness="2"
+							CornerRadius="3"
+							Command="{Binding SendConfigurationToDeviceCommand}"
+							ToolTip.Tip="{Binding FlashPadToolTip}"
+							HorizontalContentAlignment="Center"
+							VerticalContentAlignment="Center"/>
+				</Border>
 
 				<Button Content="Config"
 						Width="90"
@@ -306,12 +346,12 @@
           <!-- Layer Management Buttons -->
           <StackPanel Orientation="Horizontal" 
                       HorizontalAlignment="Center" 
-                      Spacing="10"
+                      Spacing="8"
                       Margin="0,0,0,10">
             
             <!-- Add Layer Button -->
             <Button Content="+ Add" 
-                    Width="90" 
+                    Width="72" 
                     Height="30" 
                     FontSize="12" 
                     FontWeight="Bold" 
@@ -323,12 +363,29 @@
                     HorizontalAlignment="Center"
                     HorizontalContentAlignment="Center"
                     VerticalContentAlignment="Center"
+                    ToolTip.Tip="Add a new blank layer"
                     Command="{Binding AddLayerCommand}"/>
-           
+
+            <!-- Clone Layer Button -->
+            <Button Content="Clone" 
+                    Width="72" 
+                    Height="30" 
+                    FontSize="12" 
+                    FontWeight="Bold" 
+                    Background="#404040" 
+                    Foreground="White" 
+                    BorderBrush="#707070" 
+                    BorderThickness="2" 
+                    CornerRadius="3" 
+                    HorizontalAlignment="Center"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    ToolTip.Tip="Clone the currently selected layer"
+                    Command="{Binding DuplicateLayerCommand}"/>
             
             <!-- Delete Layer Button -->
             <Button Content="Delete" 
-                    Width="90" 
+                    Width="72" 
                     Height="30" 
                     FontSize="12" 
                     FontWeight="Bold" 
@@ -340,11 +397,12 @@
                     HorizontalAlignment="Center"
                     HorizontalContentAlignment="Center"
                     VerticalContentAlignment="Center"
+                    ToolTip.Tip="Delete or reset layer"
                     Command="{Binding DeleteLayerCommand}"/>
 
             <!-- Settings Button -->
             <Button Content="Settings" 
-                    Width="90" 
+                    Width="72" 
                     Height="30" 
                     FontSize="12" 
                     FontWeight="Bold" 
@@ -356,8 +414,8 @@
                     HorizontalAlignment="Center"
                     HorizontalContentAlignment="Center"
                     VerticalContentAlignment="Center"
+                    ToolTip.Tip="Reorder or rename layers"
                     Command="{Binding OpenLayerSettingsCommand}"/>
-            
           </StackPanel>
           
         </StackPanel>

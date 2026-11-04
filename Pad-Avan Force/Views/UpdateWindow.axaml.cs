@@ -11,21 +11,15 @@ namespace PadAwan_Force.Views
         {
             InitializeComponent();
             
-            // Refresh device firmware version when window opens
+            // Automatically check for updates when window opens
             this.Opened += async (s, e) =>
             {
                 if (DataContext is UpdateWindowViewModel vm)
                 {
-                    // Small delay to ensure connection is ready
-                    await System.Threading.Tasks.Task.Delay(500);
-                    await vm.LoadDeviceFirmwareVersionAsync();
+                    await System.Threading.Tasks.Task.Delay(400);
+                    await vm.CheckForUpdatesCommand.ExecuteAsync(null);
                 }
             };
-        }
-
-        private void CloseButton_Click(object? sender, RoutedEventArgs e)
-        {
-            this.Close();
         }
     }
 }

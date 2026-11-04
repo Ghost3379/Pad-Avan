@@ -42,9 +42,12 @@ namespace PadAwan_Force.Models
         private readonly object _connectionLock = new object();
         private bool _isConnecting = false;
 
+        // Serial communication lock to prevent collisions between background monitoring and queries
+        private readonly System.Threading.SemaphoreSlim _serialLock = new System.Threading.SemaphoreSlim(1, 1);
+
         // Device Information Properties
         public string DeviceName { get; private set; } = "PadAwan Force";
-        public string FirmwareVersion { get; private set; } = "v1.2.3";
+        public string FirmwareVersion { get; private set; } = "";
         public string HardwareRevision { get; private set; } = "Rev A";
         public string SerialNumber { get; private set; } = "PAF-2024-001";
         public string Uptime { get; private set; } = "0h 0m";
@@ -294,7 +297,7 @@ namespace PadAwan_Force.Models
                             // Check for PONG (main response)
                             if (line.Equals("PONG", StringComparison.OrdinalIgnoreCase))
                                 {
-                                    System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): ✓ PONG received - port is valid!");
+                                    System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): PONG received - port is valid.");
                                 pongReceived = true;
                                 return true;
                                 }
@@ -348,7 +351,7 @@ namespace PadAwan_Force.Models
                 
                 if (!pongReceived)
                 {
-                    System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): ✗ Timeout after {readAttempts} attempts - PONG not received (BytesToRead: {test.BytesToRead})");
+                    System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): Timeout after {readAttempts} attempts - PONG not received (BytesToRead: {test.BytesToRead})");
                 }
 
                 // Kein Debug-Output bei Timeout für Performance
@@ -357,7 +360,7 @@ namespace PadAwan_Force.Models
             catch (UnauthorizedAccessException)
             {
                 // Port von anderem Prozess belegt (z.B. Arduino Serial Monitor) - nicht still schlucken, sonst wirkt es wie "kein Gerät vorhanden"
-                System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): ✗ Port is busy/in use (UnauthorizedAccessException). Close Arduino Serial Monitor / PuTTY / andere Apps, die diesen COM Port geöffnet haben.");
+                System.Diagnostics.Debug.WriteLine($"TestPortAsync({portName}): Port is busy/in use (UnauthorizedAccessException). Close Arduino Serial Monitor / PuTTY / andere Apps, die diesen COM Port geöffnet haben.");
                 return false;
             }
             catch
@@ -576,70 +579,76 @@ namespace PadAwan_Force.Models
                 return false;
             }
 
+            await _serialLock.WaitAsync();
             try
             {
                 sp.DiscardInBuffer();
                 sp.Write("PING\n");  // Explizit \n statt WriteLine für bessere Kontrolle
                 sp.BaseStream.Flush();  // Explizit flushen
-                await Task.Delay(50);  // Mehr Zeit für Antwort
+                await Task.Delay(30);
 
-                var deadline = DateTime.UtcNow.AddMilliseconds(500);  // Timeout erhöht
+                var deadline = DateTime.UtcNow.AddMilliseconds(500);
                 bool pongReceived = false;
                 
                 while (DateTime.UtcNow < deadline && !pongReceived)
                 {
-                    // Prüfe ob Daten verfügbar sind, bevor ReadLine() aufgerufen wird
                     if (sp.BytesToRead > 0)
-                {
-                    try
                     {
-                        var line = sp.ReadLine()?.Trim();
-                        if (!string.IsNullOrEmpty(line))
+                        try
                         {
-                            System.Diagnostics.Debug.WriteLine($"PingAsync: Received '{line}'");
-                            
-                            // Check for PONG (main response)
-                            if (line.Equals("PONG", StringComparison.OrdinalIgnoreCase))
+                            var line = sp.ReadLine()?.Trim();
+                            if (!string.IsNullOrEmpty(line))
                             {
-                                System.Diagnostics.Debug.WriteLine($"Ping response: PONG received");
-                                pongReceived = true;
-                                return true;
+                                System.Diagnostics.Debug.WriteLine($"PingAsync: Received '{line}'");
+                                
+                                // Check for PONG (main response)
+                                if (line.Equals("PONG", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"Ping response: PONG received");
+                                    pongReceived = true;
+                                    return true;
+                                }
+                                // Ignore READY (sent after first PONG handshake)
+                                if (line.Equals("READY", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    continue;
+                                }
+                                if (line.StartsWith("VERSION:", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    FirmwareVersion = line.Substring(8).Trim();
+                                    continue;
+                                }
+                                System.Diagnostics.Debug.WriteLine($"Ping response: '{line}' (not PONG or READY)");
                             }
-                            // Ignore READY (sent after first PONG handshake)
-                            if (line.Equals("READY", StringComparison.OrdinalIgnoreCase))
-                            {
-                                System.Diagnostics.Debug.WriteLine($"Ping response: READY received (ignoring, waiting for PONG)");
-                                // Continue reading to find PONG
-                                continue;
-                            }
-                            System.Diagnostics.Debug.WriteLine($"Ping response: '{line}' (not PONG or READY)");
                         }
-                    }
                         catch (TimeoutException) 
                         { 
-                            // weiter warten bis deadline
                         }
                         catch (Exception ex)
                         {
                             System.Diagnostics.Debug.WriteLine($"PingAsync read error: {ex.Message}");
                         }
                     }
-                    await Task.Delay(10);  // Etwas länger warten
+                    await Task.Delay(10);
                 }
                 
                 if (!pongReceived)
                 {
                     System.Diagnostics.Debug.WriteLine("PingAsync: Timeout - PONG not received");
                 }
-                System.Diagnostics.Debug.WriteLine("Ping: timeout");
                 return false;
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Ping error: {ex.Message}");
-                return false; // hier nicht Disconnect(), sonst killst du Connect-Flows
+                return false;
+            }
+            finally
+            {
+                _serialLock.Release();
             }
         }
+
         public async Task<bool> RequestBatteryStatusAsync()
         {
             if (!IsConnected || SerialPort == null || !SerialPort.IsOpen)
@@ -648,30 +657,38 @@ namespace PadAwan_Force.Models
                 return false;
             }
 
+            await _serialLock.WaitAsync();
             try
             {
-                SerialPort.WriteLine("BATTERY_STATUS");
-                await Task.Delay(200);
-                
-                if (SerialPort.BytesToRead > 0)
+                SerialPort.DiscardInBuffer();
+                SerialPort.Write("BATTERY_STATUS\n");
+                SerialPort.BaseStream.Flush();
+
+                var deadline = DateTime.UtcNow.AddMilliseconds(500);
+                while (DateTime.UtcNow < deadline)
                 {
-                    string response = SerialPort.ReadLine();
-                    System.Diagnostics.Debug.WriteLine($"Battery response: {response}");
-                    
-                    if (response.StartsWith("BATTERY:"))
+                    if (SerialPort.BytesToRead > 0)
                     {
-                        var parts = response.Substring(8).Split(',');
-                        if (parts.Length >= 3)
+                        try
                         {
-                            if (int.TryParse(parts[0], out int percentage))
+                            string response = SerialPort.ReadLine()?.Trim() ?? "";
+                            System.Diagnostics.Debug.WriteLine($"Battery response: {response}");
+
+                            if (response.StartsWith("BATTERY:"))
                             {
-                                Battery = percentage;
-                                System.Diagnostics.Debug.WriteLine($"Battery updated to {percentage}% - connection is working!");
-                                OnDeviceInfoChanged();
-                                return true;
+                                var parts = response.Substring(8).Split(',');
+                                if (parts.Length >= 1 && int.TryParse(parts[0], out int percentage))
+                                {
+                                    Battery = percentage;
+                                    System.Diagnostics.Debug.WriteLine($"Battery updated to {percentage}% - connection is working!");
+                                    OnDeviceInfoChanged();
+                                    return true;
+                                }
                             }
                         }
+                        catch (TimeoutException) { }
                     }
+                    await Task.Delay(15);
                 }
                 
                 System.Diagnostics.Debug.WriteLine("No battery response received");
@@ -680,8 +697,11 @@ namespace PadAwan_Force.Models
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Battery status error: {ex.Message}");
-                // Don't call CheckConnectionHealthAsync here as it might cause disconnection
                 return false;
+            }
+            finally
+            {
+                _serialLock.Release();
             }
         }
 
@@ -693,49 +713,71 @@ namespace PadAwan_Force.Models
                 return null;
             }
 
+            await _serialLock.WaitAsync();
             try
             {
-                SerialPort.DiscardInBuffer();
-                SerialPort.WriteLine("GET_VERSION");
-                await Task.Delay(500); // Give device more time to respond
-                
-                // Wait for response with timeout - read multiple lines if needed
-                int attempts = 0;
-                string fullResponse = "";
-                while (attempts < 20) // Wait up to 1 second
+                for (int attempt = 1; attempt <= 2; attempt++)
                 {
-                    await Task.Delay(50);
-                    attempts++;
-                    
-                    if (SerialPort.BytesToRead > 0)
+                    SerialPort.DiscardInBuffer();
+                    SerialPort.Write("GET_VERSION\n");
+                    SerialPort.BaseStream.Flush();
+
+                    var deadline = DateTime.UtcNow.AddMilliseconds(800);
+                    string fullResponse = "";
+
+                    while (DateTime.UtcNow < deadline)
                     {
-                        // Read all available data
-                        while (SerialPort.BytesToRead > 0)
+                        if (SerialPort.BytesToRead > 0)
                         {
-                            string line = SerialPort.ReadLine();
-                            fullResponse += line + "\n";
-                            System.Diagnostics.Debug.WriteLine($"Version response line: {line}");
+                            try
+                            {
+                                string line = SerialPort.ReadLine()?.Trim() ?? "";
+                                if (!string.IsNullOrEmpty(line))
+                                {
+                                    fullResponse += line + "\n";
+                                    System.Diagnostics.Debug.WriteLine($"Version response line: {line}");
+
+                                    if (line.StartsWith("VERSION:", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        string version = line.Substring(8).Trim();
+                                        System.Diagnostics.Debug.WriteLine($"Firmware version extracted: {version}");
+                                        FirmwareVersion = version;
+                                        return version;
+                                    }
+                                }
+                            }
+                            catch (TimeoutException) { }
+                            catch (Exception ex)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Version line read error: {ex.Message}");
+                            }
                         }
-                        
-                        // Check if we got the version
-                        if (fullResponse.Contains("VERSION:"))
-                        {
-                            int versionIndex = fullResponse.IndexOf("VERSION:");
-                            string versionLine = fullResponse.Substring(versionIndex);
-                            string version = versionLine.Substring(8).Split('\n', '\r')[0].Trim();
-                            System.Diagnostics.Debug.WriteLine($"Firmware version extracted: {version}");
-                            return version;
-                        }
+
+                        await Task.Delay(20);
+                    }
+
+                    System.Diagnostics.Debug.WriteLine($"GetFirmwareVersion attempt {attempt} timed out. Response: '{fullResponse}'");
+                    if (attempt < 2)
+                    {
+                        await Task.Delay(100);
                     }
                 }
-                
-                System.Diagnostics.Debug.WriteLine($"No version response received. Full response: {fullResponse}");
+
+                if (!string.IsNullOrEmpty(FirmwareVersion) && FirmwareVersion != "v1.2.3")
+                {
+                    return FirmwareVersion.Replace("v", "").Replace("V", "").Trim();
+                }
+
                 return null;
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Version request error: {ex.Message}");
                 return null;
+            }
+            finally
+            {
+                _serialLock.Release();
             }
         }
 

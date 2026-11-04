@@ -1366,16 +1366,16 @@ void executeKeyCombo(String comboString) {
   yield(); // Feed watchdog before processing
   
   // Parse combo like "Ctrl+C", "Ctrl+Shift+C", or "Win+Alt+Tab"
-  // Support up to 3 keys: 2 modifiers + 1 key
+  // Support up to 6 keys: modifiers + key
   
   // Split by '+' to get all parts
   // We need to preserve original case for the key, but uppercase for modifiers
-  String parts[3];
-  String originalParts[3]; // Store original case
+  String parts[6];
+  String originalParts[6]; // Store original case
   int partCount = 0;
   int lastPos = 0;
   
-  for (int i = 0; i < comboString.length() && partCount < 3; i++) {
+  for (int i = 0; i < comboString.length() && partCount < 6; i++) {
     if (comboString.charAt(i) == '+') {
       originalParts[partCount] = comboString.substring(lastPos, i);
       originalParts[partCount].trim();
@@ -1386,7 +1386,7 @@ void executeKeyCombo(String comboString) {
     }
   }
   // Add the last part (the actual key)
-  if (lastPos < comboString.length() && partCount < 3) {
+  if (lastPos < comboString.length() && partCount < 6) {
     originalParts[partCount] = comboString.substring(lastPos);
     originalParts[partCount].trim();
     parts[partCount] = originalParts[partCount];

@@ -180,9 +180,11 @@ namespace PadAwan_Force.Views
                     {
                         Action = buttonAction,
                         Key = buttonKey,
+                        Label = configWindow.GetConfiguredLabel(),
                         Enabled = buttonAction != "None",
                         HoldToRepeat = configWindow.ConfiguredHoldToRepeat
                     };
+                    _viewModel.HasUnsavedDeviceChanges = true;
                     
                     // Debug: Show object hashes after update
                     var updatedConfig = _viewModel.CurrentLayer.Buttons[buttonId];
@@ -368,6 +370,7 @@ namespace PadAwan_Force.Views
                     Console.WriteLine($"Saving knob config - PressAction: '{newKnobConfig.PressAction}', PressKey: '{newKnobConfig.PressKey ?? "NULL"}'");
                     
                     _viewModel.CurrentLayer!.Knobs[knobLetter] = newKnobConfig;
+                    _viewModel.HasUnsavedDeviceChanges = true;
                     
                     string layerName = _viewModel.CurrentLayer?.Name ?? "Unknown";
                     Console.WriteLine($"Updated knob {knobLetter} in layer {layerName}");

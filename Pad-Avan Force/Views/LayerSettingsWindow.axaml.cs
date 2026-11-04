@@ -218,10 +218,5 @@ namespace PadAwan_Force.Views
             
             this.Close(true);
         }
-
-        private void CancelButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-        {
-            this.Close(false);
-        }
     }
 }

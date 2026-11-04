@@ -31,19 +31,28 @@ namespace PadAwan_Force.ViewModels
         private string softwareVersion = "1.0.0";
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(LatestFirmwareDisplay))]
         private string latestFirmwareVersion = "";
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(LatestSoftwareDisplay))]
         private string latestSoftwareVersion = "";
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(FirmwareStatusBadge))]
+        [NotifyPropertyChangedFor(nameof(FirmwareStatusColor))]
+        [NotifyPropertyChangedFor(nameof(SoftwareStatusBadge))]
+        [NotifyPropertyChangedFor(nameof(SoftwareStatusColor))]
         private bool hasUpdateInfo = false;
 
-
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(SoftwareStatusBadge))]
+        [NotifyPropertyChangedFor(nameof(SoftwareStatusColor))]
         private bool canUpdateSoftware = false;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(FirmwareStatusBadge))]
+        [NotifyPropertyChangedFor(nameof(FirmwareStatusColor))]
         private bool canUpdateFirmware = false;
 
         [ObservableProperty]
@@ -64,9 +73,53 @@ namespace PadAwan_Force.ViewModels
         [ObservableProperty]
         private IBrush statusMessageColor = Brushes.White;
 
+        // Computed display properties
+        public string LatestFirmwareDisplay => string.IsNullOrEmpty(LatestFirmwareVersion) ? "—" : LatestFirmwareVersion;
+        public string LatestSoftwareDisplay => string.IsNullOrEmpty(LatestSoftwareVersion) ? "—" : LatestSoftwareVersion;
+
+        public string FirmwareStatusBadge
+        {
+            get
+            {
+                if (!HasUpdateInfo) return "Checking...";
+                if (CanUpdateFirmware) return "Update Available";
+                return "Up to Date";
+            }
+        }
+
+        public IBrush FirmwareStatusColor
+        {
+            get
+            {
+                if (!HasUpdateInfo) return Brushes.Gray;
+                if (CanUpdateFirmware) return new SolidColorBrush(Color.Parse("#00FFFF"));
+                return Brushes.LimeGreen;
+            }
+        }
+
+        public string SoftwareStatusBadge
+        {
+            get
+            {
+                if (!HasUpdateInfo) return "Checking...";
+                if (CanUpdateSoftware) return "Update Available";
+                return "Up to Date";
+            }
+        }
+
+        public IBrush SoftwareStatusColor
+        {
+            get
+            {
+                if (!HasUpdateInfo) return Brushes.Gray;
+                if (CanUpdateSoftware) return new SolidColorBrush(Color.Parse("#00FFFF"));
+                return Brushes.LimeGreen;
+            }
+        }
+
         // GitHub repository info
         private const string GITHUB_REPO_OWNER = "Ghost3379";
-        private const string GITHUB_REPO_NAME = "PadAwan";
+        private const string GITHUB_REPO_NAME = "Pad-Avan";
         private const string GITHUB_API_BASE = "https://api.github.com";
         
         // TODO: Replace with your actual Base44 website URL
@@ -88,6 +141,10 @@ namespace PadAwan_Force.ViewModels
                 {
                     version = version.Substring(0, plusIndex);
                 }
+                if (version.EndsWith(".0") && version.Count(c => c == '.') > 1)
+                {
+                    version = version.Substring(0, version.Length - 2);
+                }
                 SoftwareVersion = $"v{version}";
             }
             else
@@ -99,6 +156,10 @@ namespace PadAwan_Force.ViewModels
                 if (plusIndex > 0)
                 {
                     version = version.Substring(0, plusIndex);
+                }
+                if (version.EndsWith(".0") && version.Count(c => c == '.') > 1)
+                {
+                    version = version.Substring(0, version.Length - 2);
                 }
                 SoftwareVersion = $"v{version}";
             }
@@ -115,7 +176,13 @@ namespace PadAwan_Force.ViewModels
                 var version = await _featherConnection.GetFirmwareVersionAsync();
                 if (version != null && !string.IsNullOrEmpty(version))
                 {
-                    DeviceFirmwareVersion = $"v{version}";
+                    DeviceFirmwareVersion = $"v{version.TrimStart('v', 'V')}";
+                }
+                else if (!string.IsNullOrEmpty(_featherConnection.FirmwareVersion) && _featherConnection.FirmwareVersion != "v1.2.3")
+                {
+                    // Fallback to last known confirmed version
+                    string cached = _featherConnection.FirmwareVersion.TrimStart('v', 'V');
+                    DeviceFirmwareVersion = $"v{cached}";
                 }
                 else
                 {
@@ -177,9 +244,19 @@ namespace PadAwan_Force.ViewModels
                     
                     CanUpdateSoftware = hasNewerSoftware;
                     
-                    if (hasNewerSoftware)
+                    if (hasNewerSoftware && hasNewerVersion)
+                    {
+                        StatusMessage = "Updates available for both firmware and software!";
+                        StatusMessageColor = Brushes.LimeGreen;
+                    }
+                    else if (hasNewerSoftware)
                     {
                         StatusMessage = "Software update available!";
+                        StatusMessageColor = Brushes.LimeGreen;
+                    }
+                    else if (hasNewerVersion)
+                    {
+                        StatusMessage = "Firmware update available!";
                         StatusMessageColor = Brushes.LimeGreen;
                     }
                     else
@@ -408,7 +485,7 @@ namespace PadAwan_Force.ViewModels
                 
                 UpdateProgress = 100;
                 UpdateStatus = "Ready";
-                StatusMessage = "✅ Device is in bootloader mode! The firmware flasher website has been opened. Please select 'USB JTAG/serial debug unit' when prompted.";
+                StatusMessage = "Device is in bootloader mode. The firmware flasher website has been opened. Please select 'USB JTAG/serial debug unit' when prompted.";
                 StatusMessageColor = Brushes.LimeGreen;
                     }
                     catch (Exception ex)
@@ -419,8 +496,8 @@ namespace PadAwan_Force.ViewModels
             }
             finally
             {
-                // Don't set IsUpdating to false - keep it true so reconnection is blocked
-                // User will need to manually clear the flag or restart the app after update
+                // Reset progress bar visibility, keeping _featherConnection.IsUpdatingFirmware = true to prevent reconnects
+                IsUpdating = false;
             }
         }
 
@@ -431,20 +508,19 @@ namespace PadAwan_Force.ViewModels
             if (!CanUpdateSoftware)
             {
                 StatusMessage = "Cannot update software: No update available";
-                    StatusMessageColor = Brushes.Red;
+                StatusMessageColor = Brushes.Red;
                 return;
             }
 
             IsUpdating = true;
             UpdateStatus = "Updating software...";
-            UpdateProgress = 0;
-            StatusMessage = "";
+            UpdateProgress = 5;
+            StatusMessage = "Checking latest release...";
+            StatusMessageColor = Brushes.White;
 
             try
-                    {
+            {
                 // Step 1: Get latest release info
-                UpdateStatus = "Checking for software...";
-                UpdateProgress = 10;
                 var release = await GetLatestReleaseAsync();
                 
                 if (release == null)
@@ -460,7 +536,10 @@ namespace PadAwan_Force.ViewModels
                 {
                     foreach (var asset in release.Assets)
                     {
-                        if (asset.Name != null && asset.Name.EndsWith("-Setup.exe", StringComparison.OrdinalIgnoreCase))
+                        if (asset.Name != null &&
+                            (asset.Name.EndsWith("-Setup.exe", StringComparison.OrdinalIgnoreCase) ||
+                             asset.Name.EndsWith("Setup.exe", StringComparison.OrdinalIgnoreCase) ||
+                             (asset.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) && asset.Name.Contains("Setup", StringComparison.OrdinalIgnoreCase))))
                         {
                             installerUrl = asset.BrowserDownloadUrl;
                             break;
@@ -470,45 +549,80 @@ namespace PadAwan_Force.ViewModels
 
                 if (string.IsNullOrEmpty(installerUrl))
                 {
-                    StatusMessage = "No installer found in latest release.";
-                        StatusMessageColor = Brushes.Red;
+                    StatusMessage = "No installer found in latest release assets.";
+                    StatusMessageColor = Brushes.Red;
                     return;
                 }
 
                 // Step 3: Download installer
-                UpdateStatus = "Downloading installer...";
-                UpdateProgress = 20;
+                UpdateStatus = "Downloading update...";
+                UpdateProgress = 15;
                 string installerPath = await DownloadInstallerAsync(installerUrl);
                 
                 if (string.IsNullOrEmpty(installerPath) || !File.Exists(installerPath))
                 {
                     StatusMessage = "Failed to download installer.";
-                        StatusMessageColor = Brushes.Red;
+                    StatusMessageColor = Brushes.Red;
                     return;
                 }
 
-                // Step 4: Run installer (this will close the current app)
-                UpdateStatus = "Starting installer...";
-                UpdateProgress = 90;
+                // Step 4: Run silent installer and automatically restart
+                UpdateStatus = "Preparing update...";
+                UpdateProgress = 95;
                 
-                StatusMessage = "✅ Installer downloaded! The installer will now start. This application will close.";
-                    StatusMessageColor = Brushes.LimeGreen;
-                    
-                // Wait a moment for the message to be visible
-                await Task.Delay(2000);
-                
-                // Run installer - it will handle closing this app
+                string localAppExe = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Programs", "Pad-Avan Force", "Pad-Avan Force.exe");
+
+                string targetExe = Environment.ProcessPath ?? localAppExe;
+
+                // If running from dev bin directory, prefer installed copy if it exists
+                if (targetExe.Contains(@"\bin\", StringComparison.OrdinalIgnoreCase) && File.Exists(localAppExe))
+                {
+                    targetExe = localAppExe;
+                }
+
+                bool isAllUsers = targetExe.Contains("Program Files", StringComparison.OrdinalIgnoreCase);
+
+                string tempDir = Path.Combine(Path.GetTempPath(), "PadAwan-Force");
+                Directory.CreateDirectory(tempDir);
+                string batchFile = Path.Combine(tempDir, "silent_update.bat");
+
+                string allUsersParam = isAllUsers ? " /ALLUSERS" : "";
+                string batchScript = $@"@echo off
+rem Wait for Pad-Avan Force to fully exit and release file locks
+timeout /t 2 /nobreak >nul
+
+rem Run Inno Setup installer silently with zero prompts
+start /wait """" ""{installerPath}"" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART{allUsersParam}
+
+rem Relaunch Pad-Avan Force
+start """" ""{targetExe}""
+
+rem Clean up batch file
+(goto) 2>nul & del ""%~f0""
+";
+                await File.WriteAllTextAsync(batchFile, batchScript);
+
+                UpdateProgress = 100;
+                UpdateStatus = "Updating and restarting...";
+                StatusMessage = "Update ready. Installing in the background and restarting Pad-Avan Force...";
+                StatusMessageColor = Brushes.LimeGreen;
+
+                await Task.Delay(1200);
+
                 var processInfo = new ProcessStartInfo
                 {
-                    FileName = installerPath,
+                    FileName = batchFile,
                     UseShellExecute = true,
-                    Verb = "runas" // Request admin if needed
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    Verb = isAllUsers ? "runas" : ""
                 };
-                
-                System.Diagnostics.Process.Start(processInfo);
-                
-                // Close this application after a short delay
-                await Task.Delay(1000);
+
+                Process.Start(processInfo);
+
+                // Exit this application
                 Environment.Exit(0);
             }
             catch (Exception ex)

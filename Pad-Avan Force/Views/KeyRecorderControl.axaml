@@ -1,0 +1,83 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="350" d:DesignHeight="60"
+             x:Class="PadAwan_Force.Views.KeyRecorderControl">
+
+  <!-- Single Unified Clickable Recorder Box -->
+  <Border x:Name="RecorderBorder"
+          Width="310"
+          MinHeight="46"
+          Background="#404040"
+          BorderBrush="#707070"
+          BorderThickness="2"
+          CornerRadius="6"
+          Focusable="True"
+          Cursor="Hand"
+          HorizontalAlignment="Center">
+    <Grid ColumnDefinitions="*, Auto" Margin="8,4">
+      <!-- Prompt / placeholder / status -->
+      <TextBlock x:Name="RecorderPrompt"
+                 Grid.Column="0"
+                 Text="Click to record key or combo..."
+                 Foreground="#AAAAAA"
+                 FontSize="14"
+                 VerticalAlignment="Center"
+                 Margin="4,0,0,0"/>
+
+      <!-- Key Chips Container (shows keys during press and when recorded) -->
+      <ScrollViewer Grid.Column="0"
+                    HorizontalScrollBarVisibility="Auto"
+                    VerticalScrollBarVisibility="Disabled">
+        <StackPanel x:Name="ChipsContainer"
+                    Orientation="Horizontal"
+                    VerticalAlignment="Center"
+                    Spacing="4"
+                    IsVisible="False"/>
+      </ScrollViewer>
+
+      <!-- Right-side Actions: Mouse picker and Clear [X] -->
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+        <!-- Mouse button picker -->
+        <Button x:Name="MouseButton"
+                Content="M"
+                Width="26" Height="26"
+                Padding="0"
+                Background="#303030"
+                Foreground="#00FFFF"
+                BorderThickness="0"
+                CornerRadius="13"
+                FontSize="11"
+                FontWeight="Bold"
+                ToolTip.Tip="Select Mouse Button"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center">
+          <Button.ContextMenu>
+            <ContextMenu x:Name="MouseMenu">
+              <MenuItem Header="Left Mouse" Click="MouseMenuItem_Click"/>
+              <MenuItem Header="Right Mouse" Click="MouseMenuItem_Click"/>
+              <MenuItem Header="Middle Mouse" Click="MouseMenuItem_Click"/>
+            </ContextMenu>
+          </Button.ContextMenu>
+        </Button>
+
+        <!-- Clear Button [X] -->
+        <Button x:Name="ClearButton"
+                Content="X"
+                Width="26" Height="26"
+                Padding="0"
+                Background="#303030"
+                Foreground="#AAAAAA"
+                BorderThickness="0"
+                CornerRadius="13"
+                FontSize="11"
+                FontWeight="Bold"
+                ToolTip.Tip="Clear"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                IsVisible="False"/>
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

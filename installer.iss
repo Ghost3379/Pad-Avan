@@ -32,6 +32,8 @@ PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=commandline
 ; Allow updates - if same AppId is detected, it will update instead of installing fresh
 AllowNoIcons=yes
+CloseApplications=yes
+RestartApplications=no
 DisableProgramGroupPage=no
 DisableReadyPage=no
 VersionInfoVersion=2.0.0

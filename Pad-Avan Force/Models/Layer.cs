@@ -26,6 +26,10 @@ namespace PadAwan_Force.Models
         [JsonPropertyName("key")]
         public string Key { get; set; } = string.Empty;
 
+        [JsonPropertyName("label")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Label { get; set; }
+
         [JsonPropertyName("enabled")]
         public bool Enabled { get; set; } = true;
 
