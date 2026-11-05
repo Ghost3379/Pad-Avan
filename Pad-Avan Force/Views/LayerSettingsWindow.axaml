@@ -3,63 +3,42 @@
         xmlns:models="using:PadAwan_Force.Models"
         x:Class="PadAwan_Force.Views.LayerSettingsWindow"
         Title="Layer Settings"
-        Width="500" Height="600"
+        Width="500" Height="550"
         CanResize="False"
         Background="Black"
         Icon="/Assets/Pad-Avan Force logo v2.ico"
         WindowStartupLocation="CenterOwner">
-  
-  <Grid Margin="40">
-    <Grid.RowDefinitions>
-      <RowDefinition Height="Auto"/>
-      <RowDefinition Height="*"/>
-      <RowDefinition Height="Auto"/>
-      <RowDefinition Height="Auto"/>
-    </Grid.RowDefinitions>
+
+  <Window.Styles>
+    <Style Selector="Border#DragHandle:pointerover Ellipse">
+      <Setter Property="Fill" Value="#00FFFF"/>
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,*,Auto,Auto">
     
-    <!-- Top horizontal rectangle -->
-    <Rectangle Grid.Row="0"
-               Fill="#1A1A1A" 
-               Height="60" 
-               VerticalAlignment="Top" 
-               Margin="-40,-40,-40,-100"/>
-    
-    <!-- Bottom horizontal rectangle -->
-    <Rectangle Grid.Row="3"
-               Fill="#1A1A1A" 
-               Height="60" 
-               VerticalAlignment="Bottom" 
-               Margin="-40,0,-40,-40"/>
-    
-    <!-- Note centered in bottom gray rectangle -->
-    <TextBlock Grid.Row="3"
-               Text="Note: The first Layer is protected and cannot be moved or deleted" 
-               FontSize="11" 
-               Foreground="#707070"
-               HorizontalAlignment="Center"
-               VerticalAlignment="Bottom"
-               Margin="-40,0,-40,-30"
-               TextWrapping="Wrap"
-               MaxWidth="400"/>
-    
-    <!-- Title -->
-    <StackPanel Grid.Row="0" 
-                HorizontalAlignment="Left" 
-                Margin="-30,-35,0,30">
+    <!-- Top horizontal header bar -->
+    <Border Grid.Row="0"
+            Background="#1A1A1A"
+            Height="65"
+            Padding="25,0">
       <TextBlock Text="Layer Settings" 
-                 FontSize="32" 
+                 FontSize="28" 
                  FontWeight="Bold" 
-                 Foreground="#00FFFF"/>
-    </StackPanel>
+                 Foreground="#00FFFF"
+                 VerticalAlignment="Center"/>
+    </Border>
     
     <!-- Layer List with Drag and Drop -->
-    <ScrollViewer Grid.Row="1" 
+    <ScrollViewer Grid.Row="1"
+                  x:Name="LayerScrollViewer"
+                  Margin="25,12,25,6"
                   VerticalScrollBarVisibility="Auto"
                   HorizontalScrollBarVisibility="Disabled">
       <ItemsControl x:Name="LayerItemsControl">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
-            <StackPanel Orientation="Vertical" Spacing="10"/>
+            <StackPanel Orientation="Vertical" Spacing="8"/>
           </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
@@ -67,62 +46,48 @@
             <Border x:Name="LayerBorder"
                     Background="#404040" 
                     CornerRadius="5" 
-                    Padding="15"
+                    Padding="10,8"
                     BorderBrush="#707070"
-                    BorderThickness="2"
-                    Margin="0,0,0,5">
-              <Grid>
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="Auto"/>
-                  <ColumnDefinition Width="*"/>
-                  <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+                    BorderThickness="2">
+              <Grid ColumnDefinitions="Auto,*,Auto">
                 
-                <!-- Drag Handle / Move Buttons -->
-                <StackPanel x:Name="MoveButtonsPanel"
-                            Grid.Column="0" 
-                            Orientation="Vertical" 
-                            Spacing="5"
-                            VerticalAlignment="Center"
-                            Margin="0,0,15,0">
-                  <Button x:Name="MoveUpButton"
-                          Content="↑"
-                          Width="30"
-                          Height="20"
-                          FontSize="12"
-                          Background="#404040"
-                          Foreground="#00FFFF"
-                          BorderBrush="#707070"
-                          BorderThickness="1"
-                          CornerRadius="3"
-                          Padding="0"
-                          Click="MoveUpButton_Click"
-                          Tag="{Binding}"/>
-                  <Button x:Name="MoveDownButton"
-                          Content="↓"
-                          Width="30"
-                          Height="20"
-                          FontSize="12"
-                          Background="#404040"
-                          Foreground="#00FFFF"
-                          BorderBrush="#707070"
-                          BorderThickness="1"
-                          CornerRadius="3"
-                          Padding="0"
-                          Click="MoveDownButton_Click"
-                          Tag="{Binding}"/>
-                </StackPanel>
+                <!-- Drag Handle -->
+                <Border x:Name="DragHandle"
+                        Grid.Column="0"
+                        Background="Transparent"
+                        Cursor="SizeAll"
+                        Padding="6,6"
+                        Margin="0,0,10,0"
+                        VerticalAlignment="Center"
+                        ToolTip.Tip="Click and drag up or down to reorder layer"
+                        PointerPressed="DragHandle_PointerPressed">
+                  <StackPanel Orientation="Vertical" Spacing="3" Width="12" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="3" HorizontalAlignment="Center">
+                      <Ellipse Width="3" Height="3" Fill="#707070"/>
+                      <Ellipse Width="3" Height="3" Fill="#707070"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="3" HorizontalAlignment="Center">
+                      <Ellipse Width="3" Height="3" Fill="#707070"/>
+                      <Ellipse Width="3" Height="3" Fill="#707070"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="3" HorizontalAlignment="Center">
+                      <Ellipse Width="3" Height="3" Fill="#707070"/>
+                      <Ellipse Width="3" Height="3" Fill="#707070"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
                 
                 <!-- Layer Name TextBox (Inline Editing) -->
                 <TextBox Grid.Column="1"
                          Text="{Binding Name, Mode=TwoWay}"
-                         FontSize="16"
-                         Background="Transparent"
+                         FontSize="15"
+                         FontWeight="SemiBold"
+                         Background="#2D2D2D"
                          Foreground="White"
-                         BorderBrush="#707070"
+                         BorderBrush="#606060"
                          BorderThickness="1"
-                         CornerRadius="3"
-                         Padding="8,5"
+                         CornerRadius="4"
+                         Padding="10,6"
                          VerticalAlignment="Center"
                          LostFocus="LayerNameTextBox_LostFocus"/>
                 
@@ -130,16 +95,16 @@
                 <StackPanel Grid.Column="2"
                             Orientation="Horizontal"
                             VerticalAlignment="Center"
-                            Margin="15,0,0,0"
+                            Margin="12,0,0,0"
                             Spacing="8">
                   <TextBlock Text="{Binding Id, StringFormat='ID: {0}'}"
                              FontSize="12"
-                             Foreground="#707070"
+                             Foreground="#888888"
                              VerticalAlignment="Center"/>
                   <Border x:Name="Layer1Badge"
                           Background="#00FFFF"
                           CornerRadius="3"
-                          Padding="5,2"
+                          Padding="6,2"
                           IsVisible="False">
                     <TextBlock Text="Layer 1"
                                FontSize="10"
@@ -155,35 +120,48 @@
       </ItemsControl>
     </ScrollViewer>
     
-    <!-- Wrap Around Checkbox -->
-    <StackPanel Grid.Row="2" 
-                Orientation="Horizontal" 
-                HorizontalAlignment="Left" 
-                VerticalAlignment="Center"
-                Margin="0,10,0,10"
-                Spacing="10">
+    <!-- Bottom Controls: Wrap Around CheckBox and Save Button -->
+    <StackPanel Grid.Row="2"
+                Margin="25,4,25,12"
+                Spacing="12"
+                HorizontalAlignment="Stretch">
       <CheckBox x:Name="WrapAroundCheckBox"
                 Content="Enable wrap-around (loop through layers)"
-                FontSize="14"
+                FontSize="13"
                 Foreground="White"
+                HorizontalAlignment="Left"
                 IsChecked="True"/>
+
+      <!-- Save Button -->
+      <Button x:Name="SaveButton"
+              Content="Save" 
+              Width="120" 
+              Height="36" 
+              FontSize="15" 
+              FontWeight="Bold" 
+              Background="#404040" 
+              Foreground="White" 
+              BorderBrush="#707070" 
+              BorderThickness="2" 
+              CornerRadius="5"
+              HorizontalAlignment="Center"
+              HorizontalContentAlignment="Center"
+              VerticalContentAlignment="Center"
+              Click="SaveButton_Click"/>
     </StackPanel>
     
-    <!-- Save Button -->
-    <Button Grid.Row="3"
-            Content="Save" 
-            Width="100" 
-            Height="40" 
-            FontSize="16" 
-            FontWeight="Bold" 
-            Background="#404040" 
-            Foreground="White" 
-            BorderBrush="#707070" 
-            BorderThickness="2" 
-            CornerRadius="5"
-            HorizontalAlignment="Center"
-            Margin="0,20,0,40"
-            Click="SaveButton_Click"/>
+    <!-- Bottom Framing Bar with Note -->
+    <Border Grid.Row="3"
+            Background="#1A1A1A"
+            Height="45"
+            Padding="20,0">
+      <TextBlock Text="Note: The first Layer is protected and cannot be moved or deleted" 
+                 FontSize="11" 
+                 Foreground="#707070" 
+                 HorizontalAlignment="Center" 
+                 VerticalAlignment="Center"
+                 TextWrapping="Wrap"/>
+    </Border>
     
   </Grid>
 </Window>

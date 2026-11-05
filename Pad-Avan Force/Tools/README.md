@@ -1,6 +1,6 @@
 # Tools Directory
 
-This directory contains external tools required by PadAwan-Force.
+This directory contains external tools required by Pad-Avan Force.
 
 ## esptool.exe
 

@@ -41,7 +41,7 @@ namespace PadAwan_Force.Models
                 }
 
                 var json = await File.ReadAllTextAsync(_configPath);
-                var config = JsonSerializer.Deserialize<ConfigData>(json);
+                var config = ParseConfigJson(json);
                 return config?.Layers ?? CreateDefaultLayers();
             }
             catch (Exception ex)
@@ -61,11 +61,97 @@ namespace PadAwan_Force.Models
                 }
 
                 var json = await File.ReadAllTextAsync(_configPath);
-                return JsonSerializer.Deserialize<ConfigData>(json);
+                return ParseConfigJson(json);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error loading config: {ex.Message}");
+                return null;
+            }
+        }
+
+        public static ConfigData? ParseConfigJson(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+                return null;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                var config = new ConfigData();
+
+                // 1. General settings (check under "general" or fallback to root)
+                bool isNestedGeneral = false;
+                JsonElement generalElem = root;
+                if (root.TryGetProperty("general", out var gElem) && gElem.ValueKind == JsonValueKind.Object)
+                {
+                    generalElem = gElem;
+                    isNestedGeneral = true;
+                }
+
+                if (generalElem.TryGetProperty("version", out var versionElem))
+                    config.Version = versionElem.GetString() ?? "1.0";
+
+                if (generalElem.TryGetProperty("created", out var createdElem))
+                    config.Created = createdElem.GetString() ?? DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+                if (generalElem.TryGetProperty("device", out var deviceElem))
+                    config.Device = deviceElem.GetString() ?? "FeatherS3";
+
+                if (generalElem.TryGetProperty("currentLayer", out var currentLayerElem))
+                    config.CurrentLayer = currentLayerElem.GetInt32();
+
+                if (generalElem.TryGetProperty("wrapAround", out var wrapAroundElem))
+                    config.WrapAround = wrapAroundElem.GetBoolean();
+
+                if (generalElem.TryGetProperty("display", out var displayElem))
+                {
+                    config.Display = new DisplaySettings();
+                    if (displayElem.TryGetProperty("mode", out var modeElem))
+                        config.Display.Mode = modeElem.GetString() ?? "layer";
+                    if (displayElem.TryGetProperty("enabled", out var enabledElem))
+                        config.Display.Enabled = enabledElem.GetBoolean();
+                }
+
+                if (generalElem.TryGetProperty("layerOrder", out var layerOrderElem) && layerOrderElem.ValueKind == JsonValueKind.Array)
+                {
+                    config.LayerOrder = new List<string>();
+                    foreach (var item in layerOrderElem.EnumerateArray())
+                    {
+                        config.LayerOrder.Add(item.GetString() ?? "");
+                    }
+                }
+
+                // Check root fallbacks if general settings were nested
+                if (isNestedGeneral)
+                {
+                    if (config.CurrentLayer == 1 && root.TryGetProperty("currentLayer", out var rootCurrLayer))
+                        config.CurrentLayer = rootCurrLayer.GetInt32();
+                    if (root.TryGetProperty("wrapAround", out var rootWrap))
+                        config.WrapAround = rootWrap.GetBoolean();
+                }
+
+                // 2. Layers collection
+                if (root.TryGetProperty("layers", out var layersElem) && layersElem.ValueKind == JsonValueKind.Array)
+                {
+                    config.Layers = new List<Layer>();
+                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    foreach (var layerElem in layersElem.EnumerateArray())
+                    {
+                        var layer = JsonSerializer.Deserialize<Layer>(layerElem.GetRawText(), options);
+                        if (layer != null)
+                        {
+                            config.Layers.Add(layer);
+                        }
+                    }
+                }
+
+                return config;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error parsing config JSON: {ex.Message}");
                 return null;
             }
         }

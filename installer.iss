@@ -4,15 +4,15 @@
 [Setup]
 AppId={{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}}
 AppName=Pad-Avan Force
-AppVersion=2.0
+AppVersion=2.5
 AppPublisher=Wayne Tech Enterprises
 AppPublisherURL=https://github.com/Ghost3379/Pad-Avan
 ; Install to user's AppData\Local\Programs by default (no admin needed)
 ; If /ALLUSERS is passed, installs to Program Files (requires admin)
 DefaultDirName={code:GetInstallDir}
 DefaultGroupName=Pad-Avan Force
-OutputDir=installer
-OutputBaseFilename=PadAvanForce_x64_v2.0-Setup
+OutputDir=Installer releases
+OutputBaseFilename=PadAvanForce_x64_v2.5-Setup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -36,10 +36,10 @@ CloseApplications=yes
 RestartApplications=no
 DisableProgramGroupPage=no
 DisableReadyPage=no
-VersionInfoVersion=2.0.0
+VersionInfoVersion=2.5.0
 VersionInfoCompany=Wayne Tech Enterprises
 VersionInfoDescription=Pad-Avan Force - Macro Pad Configuration Tool
-VersionInfoCopyright=Copyright (C) 2025
+VersionInfoCopyright=Copyright (C) 2026
 ; Minimize Windows SmartScreen warnings (full removal requires code signing certificate)
 ; To fully remove warnings, you need to code-sign the installer with a certificate
 ; Uncomment and configure SignTool below if you have a code signing certificate:

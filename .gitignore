@@ -5,6 +5,8 @@
 # Allow releases folder for firmware distribution
 !releases/
 !releases/**
+!Firmware releases/
+!Firmware releases/**
 x64/
 x86/
 [Ww][Ii][Nn]32/
@@ -38,6 +40,8 @@ bld/
 # Allow releases folder for firmware distribution
 !releases/
 !releases/**
+!Firmware releases/
+!Firmware releases/**
 x64/
 x86/
 [Ww][Ii][Nn]32/
@@ -71,13 +75,18 @@ artifacts/
 *.dylib
 # Allow installer .exe files
 !installer/**/*.exe
+!installer/*.exe
+!Installer releases/**/*.exe
+!Installer releases/*.exe
 
 # Arduino
 *.hex
 *.elf
 *.bin
-# Allow .bin files in releases folder for firmware distribution
+# Allow .bin files in releases folders for firmware distribution
 !releases/**/*.bin
+!Firmware releases/**/*.bin
+!Firmware releases/*.bin
 *.eep
 *.lss
 *.sym
@@ -93,6 +102,8 @@ local.properties
 
 # Arduino IDE
 .arduino/
+build/
+**/build/
 *.prefs
 *.ino.bak
 *.ino.orig

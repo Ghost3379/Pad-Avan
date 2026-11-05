@@ -19,17 +19,15 @@ This folder contains compiled firmware binaries (.bin files) for distribution.
    - The `.bin` file will be created in the same folder as the `.ino` file
 
 5. Copy the `.bin` file to this folder:
-   - Rename it appropriately (e.g., `padawan_fs3-v1.0.0.bin`, `padavan_fs3d-v1.0.2.bin`)
-   - Place it in this `releases/firmware/` directory
+   - Rename it appropriately (e.g., `padavan_fs3d-v2.3.bin`)
+   - Place it in this `Firmware releases/` directory (e.g. under a version folder like `v2p3/`)
 
 ## File Naming Convention
 
-- `padavan_fs3d-v{VERSION}.bin` - For FeatherS3D boards (RECOMMENDED)
-- `padavan_fs3-v{VERSION}.bin` - For FeatherS3 boards (Legacy)
+- `padavan_fs3d-v{VERSION}.bin` - Universal firmware for FeatherS3D and FeatherS3 boards (ACTIVE)
 
 Example:
-- `padavan_fs3d-v1.0.3.bin` (current version)
-- `padavan_fs3-v1.0.0.bin` (legacy)
+- `padavan_fs3d-v2.3.bin` (current version)
 
 ## Including in GitHub Releases
 

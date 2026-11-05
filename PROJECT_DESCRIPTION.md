@@ -1,23 +1,23 @@
-# Padawan / PadAwan-Force Project Description
+# Pad-Avan / Pad-Avan Force Project Description
 
 ## Overview
-**Padawan** is a customizable macro pad (hardware + firmware) with 6 programmable buttons and 2 rotary encoders, controlled by a desktop configuration application called **PadAwan-Force**. The project consists of two main components:
+**Pad-Avan** is a customizable macro pad (hardware + firmware) with 6 programmable buttons and 2 rotary encoders, controlled by a desktop configuration application called **Pad-Avan Force**. The project consists of two main components:
 
-1. **Hardware/Firmware (Padawan)**: Arduino-based firmware for ESP32-S3 microcontrollers
-2. **Desktop Software (PadAwan-Force)**: Cross-platform configuration application built with Avalonia UI (C#/.NET 8.0)
+1. **Hardware/Firmware (Pad-Avan)**: Arduino-based C++ firmware for ESP32-S3 microcontrollers (`padavan_fs3d.ino`)
+2. **Desktop Software (Pad-Avan Force)**: Cross-platform configuration application built with Avalonia UI (C#/.NET 8.0)
 
 ## Hardware Components
 
 ### Supported Boards
-- **Unexpected Maker Feather S3** (older version, uses voltage divider for battery)
-- **Unexpected Maker Feather S3D** (newer version, uses MAX chip for battery measurement)
+- **Unexpected Maker Feather S3D** (primary/maintained version, uses MAX17048G chip for precise battery measurement)
+- **Unexpected Maker Feather S3** (legacy version, uses voltage divider for battery measurement; pinout is identical)
 
 ### Peripherals
-- **6 Tactile Buttons**: Programmable with various actions (key presses, text typing, key combos, layer switching)
-- **2 Rotary Encoders with Push Buttons**: Can be configured for volume control, scrolling, or custom actions
-- **SSD1306 OLED Display** (128x64): Shows layer info, battery status, or time
-- **SD SPI Storage Module** (2GB): Stores configuration files (not a physical SD card, but an integrated storage module)
-- **USB HID**: Acts as a keyboard and consumer control device (media keys)
+- **6 Tactile Buttons**: Programmable with various actions (key presses, custom text, key combos up to 6 keys, layer switching)
+- **2 Rotary Encoders with Push Buttons**: Uses `TWO03` latch mode for immediate single-click response; configurable for volume, scrolling, or custom actions
+- **SSD1306 OLED Display** (128x32): Shows active layer, battery percentage, or synchronized system time
+- **SD SPI Storage Module** (2GB): Stores multi-file configuration files (`general.json` and `layerX.json`)
+- **USB HID**: Native keyboard, mouse, and consumer control device (media keys)
 
 ## Software Architecture
 
@@ -196,27 +196,27 @@ The ESP32-S3 uses native USB with CDC (Serial) enabled in the bootloader. The fi
 
 ## Recent Fixes & Improvements
 
-1. **USB CDC Initialization**: Removed `USB.begin()` to fix COM port not appearing
-2. **SD Card Non-Blocking**: Moved SD init to loop with retries to prevent hangs
-3. **Display Flickering**: Added content change detection to prevent unnecessary updates
-4. **Reconnection Bug**: Added grace period and improved connection stability logic
-5. **Media Keys**: Added Play/Pause, Next/Previous Track, Stop, Volume Up/Down, Mute
-6. **Config File Location**: Changed from Program Files to AppData for write access
-7. **Display Handler**: Created abstraction library for better compilation speed
-8. **Memory Management**: Improved JSON reading with pre-allocated buffers
-9. **Serial Stability**: Added timeouts and flush calls for reliable communication
+1. **Rotary Encoder Single-Detent Fix**: Switched to `LatchMode::TWO03` so encoders trigger on every single detent/click.
+2. **Interactive Drag-and-Drop Layer Reordering**: Fluid mouse drag-and-drop layer reordering in Layer Settings window.
+3. **Layer Cloning**: Added dedicated Clone button to duplicate existing layer configs into new layers.
+4. **Enhanced Key Combo Builder**: Visual interactive recorder supporting modifiers and up to 6 simultaneous keys with user labels.
+5. **Bidirectional Layer Navigation**: Wrap-around and ordered layer cycling directly from the device knobs/buttons.
+6. **Active Layer Synchronization**: Device RAM layer state syncs with `general.json` and UI upon "Read Config".
+7. **Pulsing Visual Feedback**: Added cyan and green pulsing border/glow animations indicating busy/flashing state.
+8. **Button Styling Overhaul**: Clean Avalonia template overrides preventing gray flash during click, hover, or command execution.
+9. **Multi-File JSON Architecture**: Structured SD storage with `general.json` and independent `layerX.json` files.
+10. **Web Flasher Integration**: Automated bootloader entry with direct web browser flashing via `pad-avan.base44.app/flasher`.
 
 ## File Naming Conventions
-- **Padawan** = Hardware/Firmware (Arduino)
-- **PadAwan-Force** = Desktop Software (Avalonia UI)
-- **padavan_fs3.ino** = Feather S3 firmware
-- **padavan_fs3d.ino** = Feather S3D firmware
+- **Pad-Avan** = Hardware/Firmware (Arduino)
+- **Pad-Avan Force** = Desktop Software (Avalonia UI)
+- **padavan_fs3d.ino** = Universal Feather S3D / S3 firmware (Active)
+- **padavan_fs3.ino** = Legacy Feather S3 firmware (Deprecated)
 
 ## GitHub Integration
-- Firmware `.bin` files stored in `releases/firmware/`
-- Releases created on GitHub with firmware binaries
-- Update system checks GitHub Releases for new versions
-- Version format: `v1.0.X` or `firmware-v1.0.X`
+- Firmware `.bin` files stored in `Firmware releases/` and attached to GitHub releases
+- Update system checks GitHub Releases for new versions (`FS-v{Firmware}-v{Software}`)
+- Integrated with web flasher at `https://pad-avan.base44.app/flasher`
 
 ## Current Status
 - Firmware: Stable, both FS3 and FS3D versions working

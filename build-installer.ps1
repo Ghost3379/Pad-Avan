@@ -31,6 +31,12 @@ $innoSetupPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 if (-not (Test-Path $innoSetupPath)) {
     $innoSetupPath = "C:\Program Files\Inno Setup 6\ISCC.exe"
 }
+if (-not (Test-Path $innoSetupPath)) {
+    $innoSetupPath = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
+}
+if (-not (Test-Path $innoSetupPath)) {
+    $innoSetupPath = "$env:TEMP\inno\ISCC.exe"
+}
 
 if (-not (Test-Path $innoSetupPath)) {
     Write-Host "Inno Setup not found!" -ForegroundColor Red
@@ -40,15 +46,8 @@ if (-not (Test-Path $innoSetupPath)) {
 }
 
 # Step 4: Create installer directory
-if (-not (Test-Path "installer")) {
-    New-Item -ItemType Directory -Path "installer" | Out-Null
-}
-
-# Step 4.5: Delete any existing installer to avoid conflicts
-if (Test-Path "installer\PadAvanForce-Setup.exe") {
-    Write-Host "Removing existing installer..." -ForegroundColor Yellow
-    Remove-Item "installer\PadAvanForce-Setup.exe" -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 2
+if (-not (Test-Path "Installer releases")) {
+    New-Item -ItemType Directory -Path "Installer releases" | Out-Null
 }
 
 # Step 5: Compile installer
@@ -57,7 +56,7 @@ Write-Host "Creating installer..." -ForegroundColor Green
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Installer created successfully!" -ForegroundColor Green
-    Write-Host "Installer location: installer\PadAvanForce-Setup.exe" -ForegroundColor Cyan
+    Write-Host "Installer location: Installer releases\PadAvanForce_x64_v2.5-Setup.exe" -ForegroundColor Cyan
 } else {
     Write-Host "Installer creation failed!" -ForegroundColor Red
     exit 1

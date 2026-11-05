@@ -130,8 +130,18 @@ public:
       return; 
     }
     
-    // Single letter keys (A-Z) - use ASCII directly, library handles conversion
+    // Single letter keys (A-Z) - swap Z and Y for Swiss German (QWERTZ) layout
     if (keyName.length() == 1 && keyName[0] >= 'A' && keyName[0] <= 'Z') {
+      if (keyName[0] == 'Z') {
+        keyboard->press('y');
+        keyboard->releaseAll();
+        return;
+      }
+      if (keyName[0] == 'Y') {
+        keyboard->press('z');
+        keyboard->releaseAll();
+        return;
+      }
       keyboard->press(keyName[0]);
       keyboard->releaseAll();
       return;

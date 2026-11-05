@@ -46,7 +46,7 @@ namespace PadAwan_Force.Models
         private readonly System.Threading.SemaphoreSlim _serialLock = new System.Threading.SemaphoreSlim(1, 1);
 
         // Device Information Properties
-        public string DeviceName { get; private set; } = "PadAwan Force";
+        public string DeviceName { get; private set; } = "Pad-Avan Force";
         public string FirmwareVersion { get; private set; } = "";
         public string HardwareRevision { get; private set; } = "Rev A";
         public string SerialNumber { get; private set; } = "PAF-2024-001";
@@ -438,7 +438,7 @@ namespace PadAwan_Force.Models
             if (!IsConnected)
             {
                 // Reset to default values when not connected
-                DeviceName = "PadAwan Force";
+                DeviceName = "Pad-Avan Force";
                 FirmwareVersion = "v1.2.3";
                 HardwareRevision = "Rev A";
                 SerialNumber = "PAF-2024-001";

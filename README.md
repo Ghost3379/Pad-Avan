@@ -3,11 +3,12 @@
 A powerful, customizable macro pad with 6 buttons and 2 rotary encoders, featuring a desktop configuration application built with Avalonia UI.
 
 **Pad-Avan** = Hardware/Firmware (Arduino ESP32-S3)  
-**Pad-Avan-Force** = Desktop Configuration Software (Avalonia UI)
+**Pad-Avan Force** = Desktop Configuration Software (Avalonia UI)
 
 🌐 **Website**: [https://pad-avan.base44.app](https://pad-avan.base44.app)
 
-![Pad-Avan](https://img.shields.io/badge/Version-2.0.0-blue)
+![Pad-Avan](https://img.shields.io/badge/Software-v2.5.0-blue)
+![Firmware](https://img.shields.io/badge/Firmware-v2.3.0-orange)
 ![.NET](https://img.shields.io/badge/.NET-8.0-purple)
 ![Avalonia](https://img.shields.io/badge/Avalonia-11.0-green)
 ![Arduino](https://img.shields.io/badge/Arduino-ESP32--S3-orange)
@@ -15,19 +16,20 @@ A powerful, customizable macro pad with 6 buttons and 2 rotary encoders, featuri
 ## 🎯 Features
 
 ### Hardware
-- **6 Programmable Buttons** - Assign any action, key combo, or special key
-- **2 Rotary Encoders** - Volume control, scrolling, or custom actions
-- **OLED Display** (128x32) - Shows layer, battery status, or time
-- **SD SPI Storage Module** (2GB) - Integrated storage module (not a physical SD card) for storing configurations
-- **USB HID** - Works as a standard keyboard/consumer control device
+- **6 Programmable Buttons** - Assign any action, custom text, complex key combo, or special key
+- **2 Rotary Encoders with Push Buttons** - High-responsiveness single-detent tracking for volume, scrolling, or custom shortcuts
+- **OLED Display** (128x32) - Real-time feedback for active layer, battery status, or system time
+- **SD SPI Storage Module** (2GB) - Integrated on-board storage module for persistent layer configurations
+- **USB HID** - Native keyboard, mouse, and consumer media control
 
-### Desktop Application (Pad- Avan-Force)
+### Desktop Application (Pad-Avan Force)
 - **Cross-Platform UI** - Built with Avalonia UI (Windows, macOS, Linux)
-- **Layer Management** - Create and manage multiple configuration layers
-- **Visual Configuration** - Easy-to-use interface for buttons and knobs
-- **Real-time Updates** - Configure your device without reflashing
-- **Configuration Import/Export** - Save and load configurations from files
-- **Update System** - Check for firmware and software updates via GitHub Releases
+- **Interactive Layer Settings** - Drag-and-drop layer reordering with live visual feedback
+- **Layer Management** - Create, clone, rename, reorder, and delete configuration layers
+- **Key Combo Builder** - Record complex shortcuts with modifiers and up to 6 simultaneous keys
+- **Device Synchronization** - Read active layer and configuration directly from device RAM and storage
+- **Visual Feedback** - Real-time unsaved change indicators, pulsating status glows, and custom button styling
+- **Update System** - Automatic bootloader mode preparation and web-based firmware flashing via [pad-avan.base44.app/flasher](https://pad-avan.base44.app/flasher)
 
 ## 📋 Requirements
 
@@ -150,82 +152,60 @@ Configure the OLED display to show:
 ## 🏗️ Project Structure
 
 ```
-<<<<<<< HEAD
-Padawan/
-├── Pad-Avan Force/              # Desktop configuration software (Avalonia UI)
-=======
 Pad-Avan/
-├── Pad-Avan-Force/              # Desktop configuration software (Avalonia UI)
->>>>>>> 1907bc308604ee760159c1007ff690f4b946aa28
-│   ├── Models/                 # Data models
+├── Pad-Avan Force/              # Desktop configuration software (Avalonia UI)
+│   ├── Models/                 # Data models & connection handling
 │   ├── ViewModels/             # MVVM view models
-│   ├── Views/                  # UI views (XAML)
-│   └── Assets/                 # Icons and resources
+│   ├── Views/                  # UI views & custom controls (XAML)
+│   └── Assets/                 # Icons and branding resources
 │
 └── FeatherS3 scripts/           # Pad-Avan firmware
-    ├── Arduino version/        # Current firmware (Arduino)
-<<<<<<< HEAD
-    │   ├── padavan_fs3d/       # Feather S3D firmware (MAX chip) - RECOMMENDED
+    ├── Arduino version/        # Current C++ firmware (Arduino)
+    │   ├── padavan_fs3d/       # Universal firmware (Feather S3D & S3) - ACTIVE
     │   │   ├── padavan_fs3d.ino
     │   │   ├── DisplayHandler.h
     │   │   └── KeyboardLayoutWinCH.h
-    │   └── padavan_fs3/        # Feather S3 firmware (voltage divider) - Legacy
+    │   └── padavan_fs3/        # Legacy Feather S3 firmware (deprecated)
     │       └── padavan_fs3.ino
-=======
-    │   ├── Pad-Avan fs3/        # Feather S3 firmware (voltage divider)
-    │   │   └── Pad-Avan_fs3.ino
-    │   └── Pad-Avan fs3d/       # Feather S3D firmware (MAX chip)
-    │       ├── Pad-Avan_fs3d.ino
-    │       └── KeyboardLayoutWinCH.h
->>>>>>> 1907bc308604ee760159c1007ff690f4b946aa28
     └── cpy/                    # Legacy CircuitPython version (deprecated)
 ```
 
 **Naming Convention:**
 - **Pad-Avan** = The macro pad hardware & firmware (Arduino)
-- **Pad-Avan-Force** = The desktop configuration software (Avalonia UI)
+- **Pad-Avan Force** = The desktop configuration software (Avalonia UI)
 
 **Firmware Versions:**
-- **padavan_fs3d**: For Unexpected Maker Feather S3D (uses MAX chip for battery measurement) - **RECOMMENDED**
-- **padavan_fs3**: For Unexpected Maker Feather S3 (uses voltage divider for battery measurement) - Legacy
-- **CircuitPython (cpy)**: Legacy version, no longer supported (switched to Arduino for better performance and reliability)
+- **padavan_fs3d**: Universal firmware for Unexpected Maker Feather S3D and Feather S3 boards - **ACTIVE & MAINTAINED**
+- **padavan_fs3**: Legacy Feather S3 sketch (deprecated - use `padavan_fs3d` instead)
+- **CircuitPython (cpy)**: Legacy prototype, no longer supported (switched to Arduino for superior performance, responsiveness, and thermal efficiency)
 
-## 📦 Creating Firmware Releases
+## 📦 Creating Releases
 
-When creating a new **Pad-Avan** firmware release on GitHub:
+When creating a new release on GitHub:
 
 1. **Build the firmware** in Arduino IDE:
-   - Open the appropriate firmware file:
-     - `FeatherS3 scripts/Arduino version/padavan_fs3d/padavan_fs3d.ino` (for Feather S3D - RECOMMENDED)
-     - `FeatherS3 scripts/Arduino version/padavan_fs3/padavan_fs3.ino` (for Feather S3 - Legacy)
-   - Sketch → Export compiled Binary
-   - The `.bin` file will be created in the same folder as the `.ino` file
-   - File name will be something like: `Pad-Avan_fs3d.ino.bin` or `Pad-Avan_fs3d.bin`
+   - Open: `FeatherS3 scripts/Arduino version/padavan_fs3d/padavan_fs3d.ino`
+   - Select board: **Unexpected Maker FeatherS3** or **FeatherS3D**
+   - **Sketch → Export compiled Binary**
+   - Rename the exported binary to `padavan_fs3d-v2.3.bin`
 
-2. **Create a GitHub Release**:
-   - Go to [Releases](https://github.com/Ghost3379/Pad-Avan/releases)
+2. **Publish the Desktop Application**:
+   - Build the Windows installer using Inno Setup (`installer.iss`)
+   - Output: `installer/PadAvanForce_x64_v2.5-Setup.exe`
+
+3. **Create a GitHub Release**:
+   - Go to [GitHub Releases](https://github.com/Ghost3379/Pad-Avan/releases)
    - Click "Draft a new release"
-   - **Tag version**: `v1.0.0` (or `firmware-v1.0.0` for firmware-only releases)
-   - **Release title**: `Pad-Avan Firmware v1.0.0`
-   - **Description**: Include version info, e.g.:
-     ```
-     ## Pad-Avan Firmware v1.0.0
-     
-     Firmware: v1.0.0
-     Software: v1.0.0
-     
-     ### Changes
-     - Bug fixes
-     - New features
-     ```
-   - **Attach the `.bin` file** as an asset:
-     - Drag & drop the `.bin` file into the "Attach binaries" section
-     - Or click "Choose your files" and select the `.bin` file
+   - **Tag version**: `FS-v2.3-v2.5` (format: `FS-v{Firmware}-v{Software}`)
+   - **Release title**: `Pad-Avan v2.3 & Force v2.5 Release`
+   - **Attach assets**:
+     - `padavan_fs3d-v2.3.bin` (Firmware binary for web flasher & desktop updater)
+     - `PadAvanForce_x64_v2.5-Setup.exe` (Windows desktop installer)
    - Click "Publish release"
 
-3. **Users can update** via the **Pad-Avan-Force** desktop app:
-   - The app automatically detects the `.bin` file in the release assets
-   - One-click firmware update without manual flashing!
+4. **Updating**:
+   - **Via Desktop App**: The app detects the update, puts the device into bootloader mode, and opens the [Web Flasher](https://pad-avan.base44.app/flasher).
+   - **Via Web Flasher**: Visit [pad-avan.base44.app/flasher](https://pad-avan.base44.app/flasher) directly to flash any release directly in your browser.
    - No need to download Arduino IDE or esptool manually
 
 ## 🔧 Configuration

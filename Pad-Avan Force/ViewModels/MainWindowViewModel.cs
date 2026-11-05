@@ -18,7 +18,7 @@ namespace PadAwan_Force.ViewModels
     public partial class MainWindowViewModel : ViewModelBase
     {
         [ObservableProperty]
-        private string greeting = "Welcome to PadAwan Force!";
+        private string greeting = "Welcome to Pad-Avan Force!";
 
         [ObservableProperty]
         private string status = "Disconnected";
@@ -82,13 +82,13 @@ namespace PadAwan_Force.ViewModels
 
         // Device Information Properties
         [ObservableProperty]
-        private string deviceName = "PadAwan Force";
+        private string deviceName = "Pad-Avan Force";
 
         [ObservableProperty]
-        private string firmwareVersion = "v1.2.3";
+        private string firmwareVersion = "v2.3.0";
 
         [ObservableProperty]
-        private string padawanVersion = "v2.1.0";
+        private string padavanVersion = "v2.5.0";
 
         [ObservableProperty]
         private string hardwareRevision = "Rev A";
@@ -113,19 +113,60 @@ namespace PadAwan_Force.ViewModels
         [NotifyPropertyChangedFor(nameof(FlashPadBorderBrush))]
         [NotifyPropertyChangedFor(nameof(FlashPadBoxShadow))]
         [NotifyPropertyChangedFor(nameof(FlashPadToolTip))]
+        [NotifyPropertyChangedFor(nameof(ShouldFlashPulse))]
         private bool hasUnsavedDeviceChanges = false;
 
-        public IBrush FlashPadBorderBrush => HasUnsavedDeviceChanges 
-            ? Brushes.Cyan 
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(FlashPadButtonText))]
+        [NotifyPropertyChangedFor(nameof(FlashPadBorderBrush))]
+        [NotifyPropertyChangedFor(nameof(ShouldFlashPulse))]
+        private bool isFlashing = false;
+
+        public bool ShouldFlashPulse => HasUnsavedDeviceChanges || IsFlashing;
+
+        private static readonly IBrush BusyFlashBaseBorderBrush = Brush.Parse("#003808");
+
+        public IBrush FlashPadBorderBrush => ShouldFlashPulse 
+            ? BusyFlashBaseBorderBrush 
             : Brushes.LimeGreen;
 
+        public string FlashPadButtonText => IsFlashing 
+            ? "Flashing..." 
+            : "Flash Pad";
+
         public BoxShadows FlashPadBoxShadow => HasUnsavedDeviceChanges 
-            ? BoxShadows.Parse("0 0 14 3 #8000FFFF") 
+            ? BoxShadows.Parse("0 0 14 3 #8000FF00") 
             : new BoxShadows();
 
         public string FlashPadToolTip => HasUnsavedDeviceChanges 
             ? "Unsynced changes — click to flash to Pad" 
             : "Pad is in sync";
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(ConfigButtonBorderBrush))]
+        [NotifyPropertyChangedFor(nameof(ConfigButtonText))]
+        [NotifyPropertyChangedFor(nameof(ConfigButtonToolTip))]
+        private bool isConfigBusy = false;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(ConfigButtonText))]
+        [NotifyPropertyChangedFor(nameof(ConfigButtonToolTip))]
+        private string configBusyText = "";
+
+        private static readonly IBrush DefaultConfigBorderBrush = Brush.Parse("#707070");
+        private static readonly IBrush BusyConfigBaseBorderBrush = Brush.Parse("#003838");
+
+        public string ConfigButtonText => IsConfigBusy 
+            ? (!string.IsNullOrWhiteSpace(ConfigBusyText) ? ConfigBusyText : "Reading...") 
+            : "Config";
+
+        public IBrush ConfigButtonBorderBrush => IsConfigBusy 
+            ? BusyConfigBaseBorderBrush 
+            : DefaultConfigBorderBrush;
+
+        public string ConfigButtonToolTip => IsConfigBusy 
+            ? (!string.IsNullOrWhiteSpace(ConfigBusyText) ? $"{ConfigBusyText} - please wait" : "Reading config - please wait") 
+            : "Config options (Upload, Download, Read)";
 
         partial void OnDisplayModeChanged(string value)
         {
@@ -1446,6 +1487,8 @@ namespace PadAwan_Force.ViewModels
         [RelayCommand]
         public async Task DownloadConfigurationAsync()
         {
+            if (IsConfigBusy) return;
+
             Console.WriteLine("=== Downloading configuration from FeatherS3 ===");
             
             if (!_featherConnection.IsConnected)
@@ -1454,6 +1497,9 @@ namespace PadAwan_Force.ViewModels
                 DisplayText = "Not connected to FeatherS3 - please connect first";
                 return;
             }
+
+            IsConfigBusy = true;
+            ConfigBusyText = "Downloading...";
 
             try
             {
@@ -1576,11 +1622,18 @@ namespace PadAwan_Force.ViewModels
                 DisplayText = $"Error: {ex.Message}";
                 System.Diagnostics.Debug.WriteLine($"Error downloading configuration: {ex.Message}");
             }
+            finally
+            {
+                IsConfigBusy = false;
+                ConfigBusyText = "";
+            }
         }
 
         [RelayCommand]
         public async Task UploadConfigFromFileAsync()
         {
+            if (IsConfigBusy) return;
+
             Console.WriteLine("=== Uploading configuration from file ===");
             
             if (!_featherConnection.IsConnected)
@@ -1683,6 +1736,8 @@ namespace PadAwan_Force.ViewModels
                         combinedJsonBuilder.Append("]}");
                         string combinedJson = combinedJsonBuilder.ToString();
                         
+                        IsConfigBusy = true;
+                        ConfigBusyText = "Uploading...";
                         DisplayText = "Uploading configuration to device...";
                         bool success = await _featherConnection.UploadConfigurationAsync(combinedJson);
                     
@@ -1695,60 +1750,10 @@ namespace PadAwan_Force.ViewModels
                             try
                             {
                                 // Parse the combined JSON to load into UI
-                                using JsonDocument doc = JsonDocument.Parse(combinedJson);
-                                JsonElement root = doc.RootElement;
-                                
-                                // Build ConfigData from the parsed JSON
-                                var config = new ConfigData();
-                                
-                                // Parse general config
-                                if (root.TryGetProperty("general", out JsonElement generalElement))
-                                {
-                                    if (generalElement.TryGetProperty("display", out JsonElement displayElement))
-                                    {
-                                        config.Display = new DisplaySettings();
-                                        if (displayElement.TryGetProperty("mode", out JsonElement modeElement))
-                                            config.Display.Mode = modeElement.GetString() ?? "layer";
-                                        if (displayElement.TryGetProperty("enabled", out JsonElement enabledElement))
-                                            config.Display.Enabled = enabledElement.GetBoolean();
-                                    }
-                                    
-                                    if (generalElement.TryGetProperty("currentLayer", out JsonElement currentLayerElement))
-                                        config.CurrentLayer = currentLayerElement.GetInt32();
-                                    
-                                    if (generalElement.TryGetProperty("wrapAround", out JsonElement wrapAroundElement))
-                                        config.WrapAround = wrapAroundElement.GetBoolean();
-                                    
-                                    if (generalElement.TryGetProperty("layerOrder", out JsonElement layerOrderElement))
-                                    {
-                                        config.LayerOrder = new List<string>();
-                                        foreach (JsonElement item in layerOrderElement.EnumerateArray())
-                                        {
-                                            config.LayerOrder.Add(item.GetString() ?? "");
-                                        }
-                                    }
-                                }
-                                
-                                // Parse layers
-                                if (root.TryGetProperty("layers", out JsonElement layersElement) && layersElement.ValueKind == JsonValueKind.Array)
-                                {
-                                    config.Layers = new List<Layer>();
-                                    foreach (JsonElement layerElement in layersElement.EnumerateArray())
-                                    {
-                                        // Deserialize directly from JsonElement
-                                        Layer? layer = JsonSerializer.Deserialize<Layer>(layerElement.GetRawText(), new JsonSerializerOptions
-                                        {
-                                            PropertyNameCaseInsensitive = true
-                                        });
-                                        if (layer != null)
-                                        {
-                                            config.Layers.Add(layer);
-                                        }
-                                    }
-                                }
+                                var config = ConfigManager.ParseConfigJson(combinedJson);
                                 
                                 // Load into UI
-                                if (config.Layers != null && config.Layers.Count > 0)
+                                if (config?.Layers != null && config.Layers.Count > 0)
                                 {
                                     // Update Layers collection
                                     Layers.Clear();
@@ -1832,11 +1837,21 @@ namespace PadAwan_Force.ViewModels
                 DisplayText = $"Error: {ex.Message}";
                 System.Diagnostics.Debug.WriteLine($"Error uploading configuration from file: {ex.Message}");
             }
+            finally
+            {
+                IsConfigBusy = false;
+                ConfigBusyText = "";
+            }
         }
 
         [RelayCommand]
         public async Task ReadConfigAsync()
         {
+            if (IsConfigBusy)
+            {
+                return;
+            }
+
             Console.WriteLine("=== Reading configuration from FeatherS3 ===");
             
             if (!_featherConnection.IsConnected)
@@ -1845,6 +1860,9 @@ namespace PadAwan_Force.ViewModels
                 DisplayText = "Not connected to FeatherS3 - please connect first";
                 return;
             }
+
+            IsConfigBusy = true;
+            ConfigBusyText = "Reading...";
 
             try
             {
@@ -1862,10 +1880,7 @@ namespace PadAwan_Force.ViewModels
                     // Parse the configuration JSON
                     try
                     {
-                        var config = System.Text.Json.JsonSerializer.Deserialize<ConfigData>(configJson, new System.Text.Json.JsonSerializerOptions
-                        {
-                            PropertyNameCaseInsensitive = true
-                        });
+                        var config = ConfigManager.ParseConfigJson(configJson);
                         
                         if (config != null && config.Layers != null && config.Layers.Count > 0)
                         {
@@ -1883,7 +1898,10 @@ namespace PadAwan_Force.ViewModels
                                 DisplayEnabled = config.Display.Enabled;
                             }
                             
-                            // Set current layer (if specified in config)
+                            // Update wrap-around
+                            WrapAround = config.WrapAround;
+                            
+                            // Set current layer from device (config.CurrentLayer is 1-based)
                             if (config.CurrentLayer > 0 && config.CurrentLayer <= Layers.Count)
                             {
                                 SelectedLayerIndex = config.CurrentLayer - 1; // Convert to 0-based index
@@ -1892,6 +1910,11 @@ namespace PadAwan_Force.ViewModels
                             {
                                 SelectedLayerIndex = 0; // Default to Layer 1
                             }
+                            
+                            // Ensure CurrentLayer matches the selected layer
+                            CurrentLayer = (SelectedLayerIndex >= 0 && SelectedLayerIndex < Layers.Count)
+                                ? Layers[SelectedLayerIndex]
+                                : Layers.FirstOrDefault();
                             
                             // Force property change notifications
                             OnPropertyChanged(nameof(Layers));
@@ -1902,14 +1925,13 @@ namespace PadAwan_Force.ViewModels
                             UpdateButtonTexts();
                             UpdateKnobTexts();
                             
-                            // Also save to local file for consistency
-                            var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "macropad_config.json");
-                            await File.WriteAllTextAsync(configPath, configJson);
+                            // Also save to local storage for consistency
+                            await SaveLayersAsync();
                             
-                            Console.WriteLine($"Configuration loaded: {config.Layers.Count} layer(s), Current Layer: {config.CurrentLayer}");
+                            Console.WriteLine($"Configuration loaded: {config.Layers.Count} layer(s), Current Layer: {config.CurrentLayer} (Index {SelectedLayerIndex})");
                             HasUnsavedDeviceChanges = false;
-                            DisplayText = $"Config loaded. {config.Layers.Count} layer(s) loaded.";
-                            System.Diagnostics.Debug.WriteLine($"Configuration loaded successfully: {config.Layers.Count} layers");
+                            DisplayText = $"Config loaded. Active Layer: {CurrentLayer?.Name ?? (SelectedLayerIndex + 1).ToString()} ({config.Layers.Count} layers)";
+                            System.Diagnostics.Debug.WriteLine($"Configuration loaded successfully: {config.Layers.Count} layers, Active Layer: {config.CurrentLayer}");
                         }
                         else
                         {
@@ -1938,6 +1960,11 @@ namespace PadAwan_Force.ViewModels
                 DisplayText = $"Error: {ex.Message}";
                 System.Diagnostics.Debug.WriteLine($"Error reading configuration: {ex.Message}");
             }
+            finally
+            {
+                IsConfigBusy = false;
+                ConfigBusyText = "";
+            }
         }
 
         [RelayCommand]
@@ -1962,9 +1989,11 @@ namespace PadAwan_Force.ViewModels
             }
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = true)]
         public async Task<bool> SendConfigurationToDeviceAsync()
         {
+            if (IsFlashing) return false;
+
             Console.WriteLine("=== Sending ENTIRE configuration to FeatherS3 ===");
             Console.WriteLine($"IsConnected: {_featherConnection.IsConnected}");
             Console.WriteLine($"Status: {_featherConnection.Status}");
@@ -1977,6 +2006,8 @@ namespace PadAwan_Force.ViewModels
                 DisplayText = "Not connected to FeatherS3 - please connect first";
                 return false;
             }
+
+            IsFlashing = true;
 
             try
             {
@@ -2114,6 +2145,10 @@ namespace PadAwan_Force.ViewModels
                 System.Diagnostics.Debug.WriteLine($"Error sending configuration: {ex.Message}");
                 DisplayText = $"Error: {ex.Message}";
                 return false;
+            }
+            finally
+            {
+                IsFlashing = false;
             }
         }
 

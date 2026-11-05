@@ -77,8 +77,8 @@ USBHIDKeyboard Keyboard;
 USBHIDConsumerControl ConsumerControl;
 USBHIDMouse Mouse;
 KeyboardLayoutWinCH keyboardLayout(&Keyboard);
- RotaryEncoder rotaryA(ROTARY_A_PIN_A, ROTARY_A_PIN_B, RotaryEncoder::LatchMode::FOUR3);
- RotaryEncoder rotaryB(ROTARY_B_PIN_A, ROTARY_B_PIN_B, RotaryEncoder::LatchMode::FOUR3);
+ RotaryEncoder rotaryA(ROTARY_A_PIN_A, ROTARY_A_PIN_B, RotaryEncoder::LatchMode::TWO03);
+ RotaryEncoder rotaryB(ROTARY_B_PIN_A, ROTARY_B_PIN_B, RotaryEncoder::LatchMode::TWO03);
  UMS3 ums3;
  DisplayHandler display(SCREEN_WIDTH, SCREEN_HEIGHT, OLED_ADDRESS);
  
@@ -101,7 +101,7 @@ bool wrapAround = true; // Default to true for backward compatibility
  // Store current layer config in RAM
  String currentLayerConfig = "";
  
- const String FIRMWARE_VERSION = "2.0";
+ const String FIRMWARE_VERSION = "2.3";
  
  // ===== STATE VARIABLES =====
  bool sdAvailable = false;
@@ -823,6 +823,9 @@ void navigateLayerDown();
      return;
    }
    
+   // Ensure general.json reflects current active layer before sending
+   saveCurrentLayer();
+   
    if (useCurrentConfigPrefix) {
      Serial.print("CURRENT_CONFIG:");
          } else {
@@ -1316,6 +1319,12 @@ uint8_t getComboKeycode(String keyStr) {
   // The library maps 'A' (0x41) to the key 'A' WITH Shift.
   // To fix your "Ctrl+Shift+C" bug, we must return 'a', not 'A'.
   if (upperKey.length() == 1 && upperKey[0] >= 'A' && upperKey[0] <= 'Z') {
+    // Swiss German / German QWERTZ layout swap:
+    // USBHIDKeyboard assumes US QWERTY layout. On a QWERTZ Windows PC,
+    // sending US 'z' produces 'y' and sending US 'y' produces 'z'.
+    // We swap them here so Ctrl+Z sends US 'y' (resulting in 'z' on Windows).
+    if (upperKey[0] == 'Z') return 'y';
+    if (upperKey[0] == 'Y') return 'z';
     return upperKey[0] + 32; // Convert 'A'(65) to 'a'(97)
   }
 

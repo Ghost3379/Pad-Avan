@@ -13,6 +13,96 @@
         CanResize="False"
 		WindowStartupLocation="CenterOwner"
 		>
+
+  <Window.Styles>
+    <!-- Pulsing Cyan Glow Border Animation -->
+    <Style Selector="Border.configPulseGlow">
+      <Setter Property="Opacity" Value="0"/>
+    </Style>
+    <Style Selector="Border.configPulseGlow.active">
+      <Style.Animations>
+        <Animation Duration="0:0:0.75" IterationCount="Infinite" PlaybackDirection="Alternate" Easing="SineEaseInOut">
+          <KeyFrame Cue="0%">
+            <Setter Property="Opacity" Value="0.05"/>
+          </KeyFrame>
+          <KeyFrame Cue="100%">
+            <Setter Property="Opacity" Value="1.0"/>
+          </KeyFrame>
+        </Animation>
+      </Style.Animations>
+    </Style>
+
+    <!-- Flash Pad Button Styles: Green base (#b0b0), Green hover, Green pressed, Green disabled -->
+    <Style Selector="Button.flash-btn">
+      <Setter Property="Background" Value="#b0b0"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="BorderBrush" Value="{Binding FlashPadBorderBrush}"/>
+    </Style>
+    <Style Selector="Button.flash-btn:pointerover">
+      <Setter Property="Background" Value="#2EA043"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.flash-btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#2EA043"/>
+      <Setter Property="BorderBrush" Value="{Binding FlashPadBorderBrush}"/>
+      <Setter Property="TextBlock.Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.flash-btn:pressed">
+      <Setter Property="Background" Value="#1B7A33"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.flash-btn:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#1B7A33"/>
+      <Setter Property="BorderBrush" Value="{Binding FlashPadBorderBrush}"/>
+      <Setter Property="TextBlock.Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.flash-btn:disabled">
+      <Setter Property="Background" Value="#b0b0"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.flash-btn:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#b0b0"/>
+      <Setter Property="BorderBrush" Value="{Binding FlashPadBorderBrush}"/>
+      <Setter Property="TextBlock.Foreground" Value="White"/>
+    </Style>
+
+    <!-- Delete Layer Button Styles: Red Base, Red Hover, Red Pressed, Red Disabled -->
+    <Style Selector="Button.delete-btn">
+      <Setter Property="Background" Value="Red"/>
+      <Setter Property="BorderBrush" Value="DarkRed"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.delete-btn:pointerover">
+      <Setter Property="Background" Value="#FF3333"/>
+      <Setter Property="BorderBrush" Value="#FF5252"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.delete-btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#FF3333"/>
+      <Setter Property="BorderBrush" Value="#FF5252"/>
+      <Setter Property="TextBlock.Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.delete-btn:pressed">
+      <Setter Property="Background" Value="#B71C1C"/>
+      <Setter Property="BorderBrush" Value="#FF1744"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.delete-btn:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#B71C1C"/>
+      <Setter Property="BorderBrush" Value="#FF1744"/>
+      <Setter Property="TextBlock.Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.delete-btn:disabled">
+      <Setter Property="Background" Value="Red"/>
+      <Setter Property="BorderBrush" Value="DarkRed"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.delete-btn:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Red"/>
+      <Setter Property="BorderBrush" Value="DarkRed"/>
+      <Setter Property="TextBlock.Foreground" Value="White"/>
+    </Style>
+  </Window.Styles>
 	
   <Design.DataContext>
     <vm:MainWindowViewModel/>
@@ -248,9 +338,16 @@
                         Margin="0,6,0,0"
 						Spacing="10">
 
-				<Border CornerRadius="3"
-						BoxShadow="{Binding FlashPadBoxShadow}">
-					<Button Content="Flash Pad"
+				<Panel Width="90" Height="30">
+					<!-- Pulsing glow shadow behind button when unsaved changes or flashing -->
+					<Border Classes="configPulseGlow"
+							Classes.active="{Binding ShouldFlashPulse}"
+							CornerRadius="3"
+							BoxShadow="0 0 16 4 #9900FF00"
+							IsHitTestVisible="False"/>
+
+					<Button Content="{Binding FlashPadButtonText}"
+							Classes="flash-btn"
 							Width="90"
 							Height="30"
 							FontSize="12"
@@ -263,30 +360,56 @@
 							ToolTip.Tip="{Binding FlashPadToolTip}"
 							HorizontalContentAlignment="Center"
 							VerticalContentAlignment="Center"/>
-				</Border>
 
-				<Button Content="Config"
-						Width="90"
-						Height="30"
-						FontSize="12"
-						Background="#404040"
-						Foreground="White"
-						BorderBrush="#707070"
-						BorderThickness="2"
-						CornerRadius="3"
-						HorizontalContentAlignment="Center"
-						VerticalContentAlignment="Center">
-					<Button.Flyout>
-						<MenuFlyout>
-							<MenuItem Header="Upload Config from Zip"
-									  Command="{Binding UploadConfigFromFileCommand}"/>
-							<MenuItem Header="Download Config"
-									  Command="{Binding DownloadConfigurationCommand}"/>
-							<MenuItem Header="Read Config"
-									  Command="{Binding ReadConfigCommand}"/>
-						</MenuFlyout>
-					</Button.Flyout>
-				</Button>
+					<!-- Pulsing green border line over button when unsaved changes or flashing -->
+					<Border Classes="configPulseGlow"
+							Classes.active="{Binding ShouldFlashPulse}"
+							CornerRadius="3"
+							BorderThickness="2"
+							BorderBrush="#00FF00"
+							IsHitTestVisible="False"/>
+				</Panel>
+
+				<Panel Width="90" Height="30">
+					<!-- Pulsing glow shadow behind button when busy -->
+					<Border Classes="configPulseGlow"
+							Classes.active="{Binding IsConfigBusy}"
+							CornerRadius="3"
+							BoxShadow="0 0 16 4 #9900FFFF"
+							IsHitTestVisible="False"/>
+
+					<Button Content="{Binding ConfigButtonText}"
+							Width="90"
+							Height="30"
+							FontSize="12"
+							Background="#404040"
+							Foreground="White"
+							BorderBrush="{Binding ConfigButtonBorderBrush}"
+							BorderThickness="2"
+							CornerRadius="3"
+							ToolTip.Tip="{Binding ConfigButtonToolTip}"
+							HorizontalContentAlignment="Center"
+							VerticalContentAlignment="Center">
+						<Button.Flyout>
+							<MenuFlyout>
+								<MenuItem Header="Upload Config from Zip"
+										  Command="{Binding UploadConfigFromFileCommand}"/>
+								<MenuItem Header="Download Config"
+										  Command="{Binding DownloadConfigurationCommand}"/>
+								<MenuItem Header="Read Config"
+										  Command="{Binding ReadConfigCommand}"/>
+							</MenuFlyout>
+						</Button.Flyout>
+					</Button>
+
+					<!-- Pulsing cyan border line over button when busy -->
+					<Border Classes="configPulseGlow"
+							Classes.active="{Binding IsConfigBusy}"
+							CornerRadius="3"
+							BorderThickness="2"
+							BorderBrush="#00FFFF"
+							IsHitTestVisible="False"/>
+				</Panel>
 
 				<Button Content="Update"
 						Width="90"
@@ -385,13 +508,13 @@
             
             <!-- Delete Layer Button -->
             <Button Content="Delete" 
+                    Classes="delete-btn"
                     Width="72" 
                     Height="30" 
                     FontSize="12" 
                     FontWeight="Bold" 
-                    Background="Red" 
-                    Foreground="White" 
-                    BorderBrush="DarkRed" 
+                    Background="Red"
+                    BorderBrush="DarkRed"
                     BorderThickness="2" 
                     CornerRadius="3" 
                     HorizontalAlignment="Center"

@@ -20,13 +20,13 @@ jobs:
         dotnet-version: '8.0.x'
     
     - name: Restore dependencies
-      run: dotnet restore PadAwan-Force/PadAwan-Force.csproj
+      run: dotnet restore "Pad-Avan Force/Pad-Avan Force.csproj"
     
     - name: Build
-      run: dotnet build PadAwan-Force/PadAwan-Force.csproj --configuration Release --no-restore
+      run: dotnet build "Pad-Avan Force/Pad-Avan Force.csproj" --configuration Release --no-restore
     
     - name: Publish
-      run: dotnet publish PadAwan-Force/PadAwan-Force.csproj --configuration Release --output ./publish
+      run: dotnet publish "Pad-Avan Force/Pad-Avan Force.csproj" --configuration Release --output ./publish
 
   check-arduino:
     name: Check Arduino Code
@@ -37,7 +37,7 @@ jobs:
     
     - name: Check Arduino files exist
       run: |
-        if [ ! -f "FeatherS3 scripts/Arduino version/padawan fs3d/padawan_fs3d/padawan_fs3d.ino" ]; then
+        if [ ! -f "FeatherS3 scripts/Arduino version/padavan_fs3d/padavan_fs3d.ino" ]; then
           echo "Arduino file not found!"
           exit 1
         fi

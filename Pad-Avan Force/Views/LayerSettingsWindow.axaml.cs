@@ -1,11 +1,16 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
 using Avalonia.Input;
+using Avalonia.LogicalTree;
+using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using PadAwan_Force.Models;
-using Avalonia.LogicalTree;
 
 namespace PadAwan_Force.Views
 {
@@ -13,6 +18,15 @@ namespace PadAwan_Force.Views
     {
         public ObservableCollection<Layer> OrderedLayers { get; private set; }
         public bool WrapAround { get; private set; } = true; // Default to true
+
+        private bool _isDragging = false;
+        private Layer? _draggedLayer = null;
+        private Layer? _potentialDraggedLayer = null;
+        private Point _pointerPressedPoint;
+        private IPointer? _capturedPointer = null;
+
+        // Minimum pixel movement to distinguish an intentional drag from a click
+        private const double DragThreshold = 8.0;
 
         // Parameterless constructor for XAML designer
         public LayerSettingsWindow()
@@ -45,134 +59,248 @@ namespace PadAwan_Force.Views
             
             LayerItemsControl.ItemsSource = OrderedLayers;
             
-            // Set up drag and drop
-            SetupDragAndDrop();
-            
-            // Wait for UI to be ready, then update button states
+            // Wait for UI to be ready, then update visual states
             this.Loaded += (s, e) =>
             {
-                UpdateButtonStates();
+                UpdateVisualStates();
             };
             
-            // Subscribe to collection changes to update button states
+            // Subscribe to collection changes to update visual states
             OrderedLayers.CollectionChanged += (s, e) =>
             {
-                UpdateButtonStates();
+                UpdateVisualStates();
             };
         }
 
-        private void SetupDragAndDrop()
-        {
-            // Drag and drop is handled via up/down buttons
-        }
+        #region Drag and Drop Logic (Window-level capture so it never drops mid-drag)
 
-        private void MoveUpButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        private void DragHandle_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (sender is Button button && button.Tag is Layer layer)
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+
+            if (sender is Control handle && handle.DataContext is Layer layer)
             {
                 int index = OrderedLayers.IndexOf(layer);
-                // Prevent moving Layer 1 (first layer) up, and prevent moving layer at index 1 above Layer 1
-                if (index > 1) // Can only move up if index is 2 or higher
-                {
-                    OrderedLayers.Move(index, index - 1);
-                    // Update button states after move
-                    UpdateButtonStates();
-                }
+                // Protection: Layer 1 at index 0 is protected and cannot be moved
+                if (index <= 0) return;
+
+                _isDragging = false;
+                _potentialDraggedLayer = layer;
+                _draggedLayer = null;
+                _pointerPressedPoint = e.GetPosition(this);
+
+                // Capture pointer to the Window so items moving in the list never cause capture loss
+                _capturedPointer = e.Pointer;
+                _capturedPointer.Capture(this);
+
+                e.Handled = true;
             }
         }
 
-        private void MoveDownButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        protected override void OnPointerMoved(PointerEventArgs e)
         {
-            if (sender is Button button && button.Tag is Layer layer)
+            base.OnPointerMoved(e);
+
+            if (_potentialDraggedLayer == null || _capturedPointer == null) return;
+
+            // If the left button is no longer pressed, terminate drag
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             {
-                int index = OrderedLayers.IndexOf(layer);
-                if (index >= 0 && index < OrderedLayers.Count - 1)
+                StopDragging();
+                return;
+            }
+
+            Point currentPoint = e.GetPosition(this);
+            double deltaY = currentPoint.Y - _pointerPressedPoint.Y;
+            double distance = Math.Sqrt(Math.Pow(currentPoint.X - _pointerPressedPoint.X, 2) + Math.Pow(deltaY, 2));
+
+            // Only initiate drag once cursor has moved beyond threshold to prevent clicks from jumping
+            if (!_isDragging)
+            {
+                if (distance < DragThreshold)
                 {
-                    OrderedLayers.Move(index, index + 1);
-                    // Update button states after move
-                    UpdateButtonStates();
+                    return; // Still within click deadband
                 }
+                _isDragging = true;
+                _draggedLayer = _potentialDraggedLayer;
+                UpdateVisualStates();
+            }
+
+            if (!_isDragging || _draggedLayer == null) return;
+
+            int currentIndex = OrderedLayers.IndexOf(_draggedLayer);
+            if (currentIndex <= 0) return; // Cannot move Layer 1
+
+            Point currentItemsPos = e.GetPosition(LayerItemsControl);
+
+            // Auto-scroll when dragging near top or bottom edges of ScrollViewer
+            var scrollViewer = this.FindControl<ScrollViewer>("LayerScrollViewer");
+            if (scrollViewer != null)
+            {
+                Point scrollPos = e.GetPosition(scrollViewer);
+                double scrollHeight = scrollViewer.Bounds.Height;
+                if (scrollPos.Y < 35 && scrollViewer.Offset.Y > 0)
+                {
+                    scrollViewer.Offset = new Vector(0, Math.Max(0, scrollViewer.Offset.Y - 8));
+                }
+                else if (scrollPos.Y > scrollHeight - 35)
+                {
+                    scrollViewer.Offset = new Vector(0, scrollViewer.Offset.Y + 8);
+                }
+            }
+
+            // Find all rendered cards and map them to their exact layer DataContext
+            var renderedBorders = LayerItemsControl.GetLogicalDescendants()
+                .OfType<Border>()
+                .Where(b => b.Name == "LayerBorder" && b.DataContext is Layer)
+                .ToList();
+
+            // Check against each other layer (starting at index 1: Layer 1 at index 0 is protected)
+            for (int k = 1; k < OrderedLayers.Count; k++)
+            {
+                if (k == currentIndex) continue;
+
+                var targetLayer = OrderedLayers[k];
+                var targetBorder = renderedBorders.FirstOrDefault(b => b.DataContext == targetLayer);
+                if (targetBorder == null) continue;
+
+                var transform = targetBorder.TransformToVisual(LayerItemsControl);
+                if (transform == null) continue;
+
+                Point targetTopLeft = transform.Value.Transform(new Point(0, 0));
+                double top = targetTopLeft.Y;
+                double height = targetBorder.Bounds.Height;
+                double mid = top + (height / 2.0);
+
+                bool shouldSwap = false;
+                if (currentIndex < k && currentItemsPos.Y > mid)
+                {
+                    shouldSwap = true;
+                }
+                else if (currentIndex > k && currentItemsPos.Y < mid)
+                {
+                    shouldSwap = true;
+                }
+
+                if (shouldSwap && k >= 1)
+                {
+                    // Move the item in collection, keeping cyan highlight on it
+                    OrderedLayers.Move(currentIndex, k);
+                    UpdateVisualStates();
+                    break;
+                }
+            }
+
+            e.Handled = true;
+        }
+
+        protected override void OnPointerReleased(PointerReleasedEventArgs e)
+        {
+            base.OnPointerReleased(e);
+
+            if (_potentialDraggedLayer != null || _isDragging)
+            {
+                StopDragging();
+                e.Handled = true;
             }
         }
 
-        private void UpdateButtonStates()
+        protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
         {
-            // Update button states after UI is rendered
+            base.OnPointerCaptureLost(e);
+            StopDragging();
+        }
+
+        private void StopDragging()
+        {
+            _isDragging = false;
+            _draggedLayer = null;
+            _potentialDraggedLayer = null;
+
+            _capturedPointer?.Capture(null);
+            _capturedPointer = null;
+
+            UpdateVisualStates();
+        }
+
+        #endregion
+
+        #region Visual State Updates
+
+        private void UpdateVisualStates()
+        {
             Dispatcher.UIThread.Post(() =>
             {
-                // Use a delay to ensure ItemsControl has rendered its items
-                Task.Delay(50).ContinueWith(_ =>
+                var layerBorders = LayerItemsControl.GetLogicalDescendants()
+                    .OfType<Border>()
+                    .Where(b => b.Name == "LayerBorder" && b.DataContext is Layer)
+                    .ToList();
+                
+                for (int i = 0; i < OrderedLayers.Count; i++)
                 {
-                    Dispatcher.UIThread.Post(() =>
+                    var layer = OrderedLayers[i];
+                    var border = layerBorders.FirstOrDefault(b => b.DataContext == layer);
+                    if (border == null) continue;
+                    
+                    var dragHandle = border.GetLogicalDescendants().OfType<Border>()
+                        .FirstOrDefault(b => b.Name == "DragHandle");
+                    var layer1Badge = border.GetLogicalDescendants().OfType<Border>()
+                        .FirstOrDefault(b => b.Name == "Layer1Badge");
+                    
+                    if (i == 0)
                     {
-                        // Find all visual children that are Borders (our layer items)
-                        var layerBorders = LayerItemsControl.GetLogicalDescendants()
-                            .OfType<Border>()
-                            .Where(b => b.Name == "LayerBorder")
-                            .ToList();
+                        // Layer 1: Protected, cannot be moved or dragged
+                        if (dragHandle != null) dragHandle.IsVisible = false;
+                        if (layer1Badge != null) layer1Badge.IsVisible = true;
                         
-                        for (int i = 0; i < layerBorders.Count && i < OrderedLayers.Count; i++)
+                        // Highlight Layer 1 border with cyan
+                        border.BorderBrush = Brushes.Cyan;
+                        border.BorderThickness = new Thickness(3);
+                        border.Background = new SolidColorBrush(Color.Parse("#404040"));
+                    }
+                    else
+                    {
+                        // Other layers: Show drag handle, hide badge
+                        if (dragHandle != null) dragHandle.IsVisible = true;
+                        if (layer1Badge != null) layer1Badge.IsVisible = false;
+
+                        // Active drag state: keep cyan highlight on the dragged layer the ENTIRE time until mouse release!
+                        if (_isDragging && layer == _draggedLayer)
                         {
-                            var border = layerBorders[i];
-                            
-                            // Find controls within this border
-                            var buttonPanel = border.GetLogicalDescendants().OfType<StackPanel>()
-                                .FirstOrDefault(sp => sp.Name == "MoveButtonsPanel");
-                            var upButton = border.GetLogicalDescendants().OfType<Button>()
-                                .FirstOrDefault(b => b.Name == "MoveUpButton");
-                            var downButton = border.GetLogicalDescendants().OfType<Button>()
-                                .FirstOrDefault(b => b.Name == "MoveDownButton");
-                            var layer1Badge = border.GetLogicalDescendants().OfType<Border>()
-                                .FirstOrDefault(b => b.Name == "Layer1Badge");
-                            
-                            if (i == 0)
+                            border.BorderBrush = Brushes.Cyan;
+                            border.BorderThickness = new Thickness(2);
+                            border.Background = new SolidColorBrush(Color.Parse("#505050"));
+
+                            if (dragHandle != null)
                             {
-                                // Layer 1: Hide move buttons completely
-                                if (buttonPanel != null)
+                                foreach (var dot in dragHandle.GetLogicalDescendants().OfType<Ellipse>())
                                 {
-                                    buttonPanel.IsVisible = false;
+                                    dot.Fill = Brushes.Cyan;
                                 }
-                                
-                                // Show Layer 1 badge
-                                if (layer1Badge != null)
-                                {
-                                    layer1Badge.IsVisible = true;
-                                }
-                                
-                                // Highlight Layer 1 border with cyan
-                                border.BorderBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(0, 255, 255)); // Cyan
-                                border.BorderThickness = new Avalonia.Thickness(3);
-                            }
-                            else
-                            {
-                                // Other layers: Show buttons but disable up button for layer directly under Layer 1
-                                if (buttonPanel != null)
-                                {
-                                    buttonPanel.IsVisible = true;
-                                }
-                                
-                                // Disable up button for second layer (can't move above Layer 1)
-                                if (upButton != null)
-                                {
-                                    upButton.IsEnabled = (i > 1); // Disable for index 1 (second layer)
-                                    upButton.Opacity = (i == 1) ? 0.5 : 1.0;
-                                }
-                                
-                                // Hide Layer 1 badge
-                                if (layer1Badge != null)
-                                {
-                                    layer1Badge.IsVisible = false;
-                                }
-                                
-                                // Normal border for other layers
-                                border.BorderBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(112, 112, 112)); // #707070
-                                border.BorderThickness = new Avalonia.Thickness(2);
                             }
                         }
-                    }, Avalonia.Threading.DispatcherPriority.Loaded);
-                });
-            }, Avalonia.Threading.DispatcherPriority.Loaded);
+                        else
+                        {
+                            border.BorderBrush = new SolidColorBrush(Color.Parse("#707070"));
+                            border.BorderThickness = new Thickness(2);
+                            border.Background = new SolidColorBrush(Color.Parse("#404040"));
+
+                            if (dragHandle != null)
+                            {
+                                foreach (var dot in dragHandle.GetLogicalDescendants().OfType<Ellipse>())
+                                {
+                                    dot.Fill = new SolidColorBrush(Color.Parse("#707070"));
+                                }
+                            }
+                        }
+                    }
+                }
+            }, DispatcherPriority.Loaded);
         }
+
+        #endregion
+
+        #region Saving & Validation
 
         private void LayerNameTextBox_LostFocus(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
@@ -218,5 +346,7 @@ namespace PadAwan_Force.Views
             
             this.Close(true);
         }
+
+        #endregion
     }
 }
